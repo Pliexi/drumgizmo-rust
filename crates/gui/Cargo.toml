@@ -1,0 +1,23 @@
+[package]
+name = "dg-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Dark-themed egui interface: kit browser, sequencer grid, step inspector"
+
+[dependencies]
+dg-common = { workspace = true }
+dg-kit = { workspace = true }
+dg-engine = { workspace = true }
+dg-midi = { workspace = true }
+dg-sequencer = { workspace = true }
+crossbeam-channel = "0.5"
+eframe = { workspace = true }
+egui = { workspace = true }
+rtrb = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]

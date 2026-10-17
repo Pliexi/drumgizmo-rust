@@ -1,0 +1,17 @@
+[package]
+name = "dg-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Drum sampler engine: MIDI to sound, chokes, multichannel mixing, kit lifecycle"
+
+[dependencies]
+dg-common = { workspace = true }
+dg-kit = { workspace = true }
+dg-sampler = { workspace = true }
+dg-sequencer = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

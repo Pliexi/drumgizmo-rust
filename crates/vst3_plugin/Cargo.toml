@@ -1,0 +1,20 @@
+[package]
+name = "dg-vst3-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "VST3 wrapper for the drumgizmo-rust engine"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dg-common = { workspace = true }
+dg-engine = { workspace = true }
+dg-kit = { workspace = true }
+dg-plugin = { workspace = true }
+dg-sequencer = { workspace = true }
+vst3 = { workspace = true }
+serde_json = { workspace = true }

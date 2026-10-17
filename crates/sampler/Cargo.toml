@@ -1,0 +1,14 @@
+[package]
+name = "dg-sampler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Voice manager, sample selection (velocity layers / round robin / power lists)"
+
+[dependencies]
+dg-common = { workspace = true }
+dg-kit = { workspace = true }
+
+[dev-dependencies]

@@ -1,0 +1,21 @@
+[package]
+name = "dg-kit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "DrumGizmo kit loader: XML DOM, parser, audio decoding and a test-kit generator"
+
+[[bin]]
+name = "kitgen"
+path = "src/bin/kitgen.rs"
+
+[dependencies]
+dg-common = { workspace = true }
+roxmltree = { workspace = true }
+symphonia = { workspace = true }
+rubato = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,21 @@
+[package]
+name = "dg-audio-io"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "System audio backends (ALSA/JACK via cpal) and MIDI input (midir)"
+
+[dependencies]
+dg-common = { workspace = true }
+dg-engine = { workspace = true }
+dg-sequencer = { workspace = true }
+cpal = { workspace = true }
+midir = { workspace = true }
+rtrb = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

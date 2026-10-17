@@ -1,0 +1,72 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/common",
+    "crates/kit",
+    "crates/sampler",
+    "crates/engine",
+    "crates/midi",
+    "crates/sequencer",
+    "crates/audio_io",
+    "crates/gui",
+    "crates/plugin",
+    "crates/clap_plugin",
+    "crates/lv2_plugin",
+    "crates/vst3_plugin",
+    "crates/standalone",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+authors = ["drumgizmo-rust contributors"]
+rust-version = "1.74"
+
+[workspace.dependencies]
+# XML parsing (read-only, zero-copy when possible)
+roxmltree = "0.21"
+# Audio decoding (WAV/FLAC/AIFF like original DrumGizmo)
+symphonia = { version = "0.6", default-features = false, features = ["wav", "flac", "aiff", "pcm"] }
+# Resampling for kits decoded at a different rate than the engine
+rubato = { version = "0.16", features = ["fft_resampler"] }
+# Lock-free SPSC ring buffer for realtime messaging
+rtrb = "0.3"
+# Standard MIDI File import/export (pure Rust)
+midly = { version = "0.5", default-features = false, features = ["std"] }
+# Serialization of patterns / plugin state
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.9"
+# GUI
+egui = "0.37"
+eframe = { version = "0.37", default-features = false, features = ["wayland", "x11", "accesskit", "default_fonts"] }
+# Audio devices (ALSA/JACK via PipeWire) and MIDI ports
+cpal = "0.18"
+midir = "0.11"
+# Plugin ABI wrappers
+clap-sys = "0.5"
+vst3 = "0.3"
+
+# Internal crates
+dg-common = { path = "crates/common" }
+dg-kit = { path = "crates/kit" }
+dg-sampler = { path = "crates/sampler" }
+dg-engine = { path = "crates/engine" }
+dg-midi = { path = "crates/midi" }
+dg-sequencer = { path = "crates/sequencer" }
+dg-audio-io = { path = "crates/audio_io" }
+dg-gui = { path = "crates/gui" }
+dg-plugin = { path = "crates/plugin" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "unwind" # plugins must not abort the host process
+
+[profile.dev]
+opt-level = 1
+
+[profile.test]
+opt-level = 2

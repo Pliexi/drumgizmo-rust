@@ -1,0 +1,11 @@
+[package]
+name = "dg-common"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Shared types and helpers for the drumgizmo-rust workspace"
+
+[dependencies]
+serde = { workspace = true }

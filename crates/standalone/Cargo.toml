@@ -1,0 +1,28 @@
+[package]
+name = "dg-standalone"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Standalone drumgizmo-rust application: engine + GUI + audio/midi backends"
+
+[[bin]]
+name = "drumgizmo-rust"
+path = "src/main.rs"
+
+[dependencies]
+dg-common = { workspace = true }
+dg-kit = { workspace = true }
+dg-engine = { workspace = true }
+dg-gui = { workspace = true }
+dg-audio-io = { workspace = true }
+dg-midi = { workspace = true }
+dg-sequencer = { workspace = true }
+eframe = { workspace = true }
+egui = { workspace = true }
+env_logger = "0.11"
+log = "0.4"
+rtrb = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }

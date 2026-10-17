@@ -1,0 +1,15 @@
+[package]
+name = "dg-midi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Standard MIDI File import/export utilities"
+
+[dependencies]
+dg-common = { workspace = true }
+dg-sequencer = { workspace = true }
+midly = { workspace = true }
+
+[dev-dependencies]

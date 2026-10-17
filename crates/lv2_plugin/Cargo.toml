@@ -1,0 +1,18 @@
+[package]
+name = "dg-lv2-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "LV2 wrapper for the drumgizmo-rust engine (hand-rolled LV2 ABI in pure Rust)"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dg-common = { workspace = true }
+dg-engine = { workspace = true }
+dg-kit = { workspace = true }
+dg-plugin = { workspace = true }
+dg-sequencer = { workspace = true }
