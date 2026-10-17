@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<drumkit name="Rust Test Kit" version="2.0" description="Generated synthetic drumgizmo test kit" samplerate="44100">
+<metadata>
+<version>2.0</version>
+<title>Rust Test Kit</title>
+<description>Generated synthetic drumgizmo test kit</description>
+<license>GPL-3.0-or-later</license>
+<author>drumgizmo-rust</author>
+<email>noreply@localhost</email>
+<website>https://localhost</website>
+<defaultmidimap src="midimap.xml"/>
+</metadata>
+<channels>
+  <channel name="Kick In"/>
+  <channel name="Kick Out"/>
+  <channel name="Snare In"/>
+  <channel name="Snare Out"/>
+  <channel name="Hat In"/>
+  <channel name="Hat Out"/>
+  <channel name="Tom In"/>
+  <channel name="Tom Out"/>
+</channels>
+<instruments>
+  <instrument name="Kick" file="kick.xml">
+    <channelmap in="Main L" out="Kick In"/>
+    <channelmap in="Main R" out="Kick Out"/>
+  </instrument>
+  <instrument name="Snare" file="snare.xml">
+    <channelmap in="Main L" out="Snare In"/>
+    <channelmap in="Main R" out="Snare Out"/>
+  </instrument>
+  <instrument name="HiHat Closed" file="hihat_closed.xml" group="HiHat">
+    <channelmap in="Main L" out="Hat In"/>
+    <channelmap in="Main R" out="Hat Out"/>
+    <chokes>
+      <choke instrument="HiHat Open" choketime="68"/>
+    </chokes>
+  </instrument>
+  <instrument name="HiHat Open" file="hihat_open.xml" group="HiHat">
+    <channelmap in="Main L" out="Hat In"/>
+    <channelmap in="Main R" out="Hat Out"/>
+    <chokes>
+      <choke instrument="HiHat Closed" choketime="68"/>
+    </chokes>
+  </instrument>
+  <instrument name="Tom" file="tom.xml">
+    <channelmap in="Main L" out="Tom In"/>
+    <channelmap in="Main R" out="Tom Out"/>
+  </instrument>
+</instruments>
+</drumkit>

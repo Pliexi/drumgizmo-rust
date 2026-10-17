@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<instrument name="Snare" version="2.0">
+<channels>
+  <channel name="Main L"/>
+  <channel name="Main R"/>
+</channels>
+<samples>
+  <sample name="stroke00" power="0.2" normalized="true">
+    <audiofile channel="Main L" file="snare_stroke00.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="snare_stroke00.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke01" power="0.2" normalized="true">
+    <audiofile channel="Main L" file="snare_stroke01.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="snare_stroke01.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke10" power="0.55" normalized="true">
+    <audiofile channel="Main L" file="snare_stroke10.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="snare_stroke10.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke11" power="0.55" normalized="true">
+    <audiofile channel="Main L" file="snare_stroke11.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="snare_stroke11.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke20" power="0.85" normalized="true">
+    <audiofile channel="Main L" file="snare_stroke20.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="snare_stroke20.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke21" power="0.85" normalized="true">
+    <audiofile channel="Main L" file="snare_stroke21.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="snare_stroke21.wav" filechannel="2"/>
+  </sample>
+</samples>
+</instrument>

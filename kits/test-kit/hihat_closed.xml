@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<instrument name="HiHat Closed" version="2.0">
+<channels>
+  <channel name="Main L"/>
+  <channel name="Main R"/>
+</channels>
+<samples>
+  <sample name="stroke00" power="0.1" normalized="true">
+    <audiofile channel="Main L" file="hihat_closed_stroke00.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="hihat_closed_stroke00.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke10" power="0.4" normalized="true">
+    <audiofile channel="Main L" file="hihat_closed_stroke10.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="hihat_closed_stroke10.wav" filechannel="2"/>
+  </sample>
+</samples>
+</instrument>

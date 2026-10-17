@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<instrument name="Kick" version="2.0">
+<channels>
+  <channel name="Main L"/>
+  <channel name="Main R"/>
+</channels>
+<samples>
+  <sample name="stroke00" power="0.15" normalized="true">
+    <audiofile channel="Main L" file="kick_stroke00.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="kick_stroke00.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke01" power="0.15" normalized="true">
+    <audiofile channel="Main L" file="kick_stroke01.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="kick_stroke01.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke10" power="0.5" normalized="true">
+    <audiofile channel="Main L" file="kick_stroke10.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="kick_stroke10.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke11" power="0.5" normalized="true">
+    <audiofile channel="Main L" file="kick_stroke11.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="kick_stroke11.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke20" power="0.9" normalized="true">
+    <audiofile channel="Main L" file="kick_stroke20.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="kick_stroke20.wav" filechannel="2"/>
+  </sample>
+  <sample name="stroke21" power="0.9" normalized="true">
+    <audiofile channel="Main L" file="kick_stroke21.wav" filechannel="1"/>
+    <audiofile channel="Main R" file="kick_stroke21.wav" filechannel="2"/>
+  </sample>
+</samples>
+</instrument>
