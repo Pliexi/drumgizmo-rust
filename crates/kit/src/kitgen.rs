@@ -19,6 +19,10 @@ pub enum TestKitFlavour {
     Small,
     /// Kick/Snare with v1.0 velocity groups.
     Vintage,
+    /// Same layout as [`TestKitFlavour::Small`] but with `main="true"` on
+    /// the "Kick In" and "Snare In" kit channels; used to exercise the
+    /// main-channel stereo mixdown.
+    MainSum,
 }
 
 /// Writes a test kit into `dir` and returns the drumkit.xml path.
@@ -256,7 +260,7 @@ pub fn generate_test_kit(
     ];
 
     let instruments = match flavour {
-        TestKitFlavour::Small => &small,
+        TestKitFlavour::Small | TestKitFlavour::MainSum => &small,
         TestKitFlavour::Vintage => &vintage,
     };
 
@@ -284,7 +288,7 @@ pub fn generate_test_kit(
     // drumkit.xml
     // ------------------------------------------------------------------
     let kit_version = match flavour {
-        TestKitFlavour::Small => "2.0",
+        TestKitFlavour::Small | TestKitFlavour::MainSum => "2.0",
         TestKitFlavour::Vintage => "1.0",
     };
 
@@ -320,6 +324,17 @@ pub fn generate_test_kit(
     kit_xml.push_str("</channels>\n<instruments>\n");
 
     for instrument in instruments {
+        // Main channel marking follows upstream: `main` lives on the
+        // `<channelmap>` element (see domloader.cc / dgxmlparser.cc); a
+        // kit with any explicit main makes everything else not-main via
+        // the loader defaulting.
+        let main_left_attr = if flavour == TestKitFlavour::MainSum
+            && (instrument.kit_channel_left == "Kick In" || instrument.kit_channel_left == "Snare In")
+        {
+            " main=\"true\""
+        } else {
+            ""
+        };
         let group_attr = format!(" group=\"{}\"", instrument.group);
         let group_attr = if instrument.group.is_empty() {
             ""
@@ -331,8 +346,9 @@ pub fn generate_test_kit(
             instrument.name, instrument.xml_file, group_attr
         ));
         kit_xml.push_str(&format!(
-            "    <channelmap in=\"Main L\" out=\"{}\"/>\n",
-            instrument.kit_channel_left
+            "    <channelmap in=\"Main L\" out=\"{}\"{}/>\n",
+            instrument.kit_channel_left,
+            main_left_attr
         ));
         kit_xml.push_str(&format!(
             "    <channelmap in=\"Main R\" out=\"{}\"/>\n",
@@ -357,7 +373,7 @@ pub fn generate_test_kit(
     // ------------------------------------------------------------------
     for instrument in instruments {
         let instrument_version = match flavour {
-            TestKitFlavour::Small => "2.0",
+            TestKitFlavour::Small | TestKitFlavour::MainSum => "2.0",
             TestKitFlavour::Vintage => "1.0",
         };
         let mut xml = format!(

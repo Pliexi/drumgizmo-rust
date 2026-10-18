@@ -83,6 +83,29 @@ pub struct Engine {
     commands: Consumer<RtCommand>,
     /// Block relative MIDI events, sorted before processing.
     pending: Vec<MidiEvent>,
+    /// Per kit channel rendering scratch (stereo mixdown source).
+    scratch: Vec<Vec<Sample>>,
+    /// Main channel stereo mapping.
+    stereo_mix: StereoMix,
+    /// Bumped on every kit install; guards the stereo scratch ownership
+    /// against mid-block kit loads.
+    kit_generation: u64,
+}
+
+/// Which kit channels to sum into the stereo output mix (main channels), or
+/// the fallback channel pair [0, 1] when nothing is marked main.
+#[derive(Debug, Clone, PartialEq)]
+enum StereoMix {
+    /// Explicit main kit channels (summed into L+R).
+    Main(Vec<usize>),
+    /// Fallback when no main channel exists: (left, right).
+    Pair(usize, usize),
+}
+
+impl Default for StereoMix {
+    fn default() -> Self {
+        Self::Pair(0, 1)
+    }
 }
 
 /// Creates the engine control pair: the engine (rt side) and the command
@@ -123,6 +146,9 @@ impl Engine {
             loader: None,
             commands,
             pending: Vec::new(),
+            scratch: Vec::new(),
+            stereo_mix: StereoMix::default(),
+            kit_generation: 0,
         }
     }
 
@@ -199,6 +225,7 @@ impl Engine {
     /// Replaces the kit; `midimap` resolves MIDI notes (None = no triggers,
     /// upstream shows the kit but cannot sound without a midimap).
     pub fn set_kit(&mut self, kit: Arc<LoadedKit>, midimap: Option<&[MidimapEntry]>) {
+        self.kit_generation += 1;
         self.selection = kit
             .instruments
             .iter()
@@ -220,6 +247,26 @@ impl Engine {
             .collect();
         self.voice_gains = vec![1.0; kit.instruments.len()];
         self.last_samples = vec![usize::MAX; kit.instruments.len()];
+        self.scratch = vec![Vec::new(); kit.channels.len()];
+
+        // Stereo mixdown: sum every kit channel that a main instrument
+        // channel maps to; without any main mapping use the first pair.
+        let mut mains: Vec<usize> = kit
+            .instruments
+            .iter()
+            .flat_map(|i| i.channels.iter())
+            .filter(|c| matches!(c.main, MainState::IsMain))
+            .map(|c| c.kit_channel)
+            .filter(|c| *c < NO_CHANNEL)
+            .collect();
+        mains.sort_unstable();
+        mains.dedup();
+        self.stereo_mix = if mains.is_empty() {
+            StereoMix::Pair(0, 1)
+        } else {
+            StereoMix::Main(mains)
+        };
+
         self.kit = Some(kit);
     }
 
@@ -502,6 +549,77 @@ impl Engine {
         }
 
         self.frames_played += block_size as u64;
+        events
+    }
+
+    /// Stereo convenience path for hosts with fixed stereo outputs:
+    /// renders into the internal per-kit-channel scratch buffers and mixes
+    /// down following docs/decisions.md (every `main` kit channel sums
+    /// into L and R; without any main mapping channel 0 → left,
+    /// channel 1 → right). Returns the count of consumed event groups
+    /// like [`Engine::render_block`].
+    pub fn render_stereo(
+        &mut self,
+        left: &mut [Sample],
+        right: &mut [Sample],
+        midi: &[MidiEvent],
+    ) -> usize {
+        let block_size = left.len().min(right.len()).max(1);
+        // Temporarily own the scratch buffers and the stereo mapping so
+        // that `render_block` can borrow `self` while the per-channel
+        // views borrow the local vecs. `take` is a plain move, no
+        // allocation on the audio path.
+        let generation = self.kit_generation;
+        let mut scratch = std::mem::take(&mut self.scratch);
+        let mix = std::mem::take(&mut self.stereo_mix);
+        for buffer in scratch.iter_mut() {
+            let len = buffer.len();
+            if len < block_size {
+                // Rare: kit swap between our calls before this or the
+                // block size changed (host driven).
+                buffer.resize(block_size, 0.0);
+            }
+            buffer[..block_size.min(len)].fill(0.0);
+        }
+        let mut views: Vec<&mut [Sample]> =
+            scratch.iter_mut().map(|b| b.as_mut_slice()).collect();
+        let events = self.render_block(&mut views, midi);
+        drop(views);
+
+        left[..block_size].fill(0.0);
+        right[..block_size].fill(0.0);
+        match &mix {
+            StereoMix::Main(mains) => {
+                for channel in mains {
+                    if let Some(buffer) = scratch.get(*channel) {
+                        for frame in 0..block_size {
+                            let value = buffer[frame];
+                            left[frame] += value;
+                            right[frame] += value;
+                        }
+                    }
+                }
+            }
+            StereoMix::Pair(l_channel, r_channel) => {
+                if let Some(buffer) = scratch.get(*l_channel) {
+                    for frame in 0..block_size {
+                        left[frame] += buffer[frame];
+                    }
+                }
+                if let Some(buffer) = scratch.get(*r_channel) {
+                    for frame in 0..block_size {
+                        right[frame] += buffer[frame];
+                    }
+                }
+            }
+        }
+        if generation == self.kit_generation {
+            // A mid-block kit load (take_loader_result) installs fresh
+            // scratch buffers and a fresh mapping for the new kit; keep
+            // those instead of the stale ones in the locals.
+            self.scratch = scratch;
+            self.stereo_mix = mix;
+        }
         events
     }
 }

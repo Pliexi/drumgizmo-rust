@@ -19,7 +19,11 @@ fn unique_dir(name: &str) -> PathBuf {
 }
 
 fn load_test_kit(dir: &PathBuf) -> Arc<LoadedKit> {
-    let path = generate_test_kit(dir, 44100, TestKitFlavour::Small).expect("generate kit");
+    load_test_kit_flavour(dir, TestKitFlavour::Small)
+}
+
+fn load_test_kit_flavour(dir: &PathBuf, flavour: TestKitFlavour) -> Arc<LoadedKit> {
+    let path = generate_test_kit(dir, 44100, flavour).expect("generate kit");
     let mut loader = KitLoader::start(path.to_str().unwrap(), 44100);
     loop {
         match loader.poll() {
@@ -246,4 +250,92 @@ fn async_kit_load_via_command() {
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
     assert!(rendered, "kit arrived asynchronously");
+}
+
+/// Renders the same kit state twice: once per kit channel (via
+/// [`Engine::render_block`] with a buffer per channel) and once through
+/// [`Engine::render_stereo`]. Both engine instances must be fresh.
+struct StereoProbe {
+    channels: Vec<Vec<f32>>,
+    left: Vec<f32>,
+    right: Vec<f32>,
+    frames: usize,
+}
+
+fn take_channels(kit: &Arc<LoadedKit>, midimap: &[dg_kit::MidimapEntry]) -> StereoProbe {
+    let frames = 256usize;
+    // One fresh engine for the per-channel render.
+    let (engine_a, producer) = engine_pair(44100, 128);
+    let mut per_channel = engine_a;
+    per_channel.set_kit(kit.clone(), Some(midimap));
+    let mut channels: Vec<Vec<f32>> = kit
+        .channels
+        .iter()
+        .map(|_| vec![0.0f32; frames])
+        .collect();
+    let mut views: Vec<&mut [f32]> = channels.iter_mut().map(|c| c.as_mut_slice()).collect();
+    let midi = [MidiEvent::note_on(36, 110.0, 0)];
+    per_channel.render_block(&mut views, &midi);
+    drop(views);
+
+    // Second fresh engine for the stereo render.
+    let (engine_b, producer) = engine_pair(44100, 128);
+    let mut stereo = engine_b;
+    stereo.set_kit(kit.clone(), Some(midimap));
+    let mut left = vec![0.0f32; frames];
+    let mut right = vec![0.0f32; frames];
+    let midi = [MidiEvent::note_on(36, 110.0, 0)];
+    stereo.render_stereo(&mut left, &mut right, &midi);
+    let _ = producer;
+    StereoProbe { channels, left, right, frames }
+}
+
+#[test]
+fn render_stereo_pairs_fallback_channels() {
+    let dir = unique_dir("stereo-pair");
+    let kit = load_test_kit_flavour(&dir, TestKitFlavour::Small);
+    let midimap_path = kit.basepath.join("midimap.xml");
+    let midimap = dg_kit::parser::parse_midimap_file(&midimap_path).unwrap();
+    let probe = take_channels(&kit, &midimap);
+
+    // Without any main marking the fallback pair is the first two kit
+    // channels (Kick In / Kick Out for this kit).
+    assert_eq!(&probe.left[..probe.frames], &probe.channels[0][..probe.frames]);
+    assert_eq!(&probe.right[..probe.frames], &probe.channels[1][..probe.frames]);
+    assert!(
+        probe.channels.iter().skip(2).all(|c| c.iter().all(|s| *s == 0.0)),
+        "only the pair channels render in per-channel mode with one hit"
+    );
+}
+
+#[test]
+fn render_stereo_sums_main_channels() {
+    let dir = unique_dir("stereo-main");
+    let kit = load_test_kit_flavour(&dir, TestKitFlavour::MainSum);
+    let midimap_path = kit.basepath.join("midimap.xml");
+    let midimap = dg_kit::parser::parse_midimap_file(&midimap_path).unwrap();
+    let probe = take_channels(&kit, &midimap);
+
+    // "Kick In" and "Snare In" are marked main (kit channels 0 and 2); a
+    // kick hit only renders into channel 0 and 1 (Kick In / Kick Out), so
+    // the stereo sum of this hit equals the single main channel 0.
+    let mut expected = vec![0.0f32; probe.frames];
+    for (frame, sum) in expected.iter_mut().enumerate().take(probe.frames) {
+        *sum = probe.channels[0][frame];
+    }
+    assert_eq!(&probe.left[..probe.frames], &expected[..probe.frames]);
+    assert_eq!(&probe.right[..probe.frames], &expected[..probe.frames]);
+
+    // The non-main "Kick Out" plane (kit channel 1) is active in
+    // per-channel mode but must stay out of the stereo sum: both planes
+    // differ (right plane is detuned), so equality with channel 1 would
+    // expose a leak.
+    assert!(
+        probe.channels[1].iter().any(|s| *s != 0.0),
+        "kick right plane renders in per-channel mode"
+    );
+    assert_ne!(
+        probe.left, probe.channels[1],
+        "stereo mix must not contain the non-main kit channel"
+    );
 }

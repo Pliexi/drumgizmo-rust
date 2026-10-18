@@ -913,6 +913,8 @@ dependencies = [
  "dg-kit",
  "dg-sampler",
  "dg-sequencer",
+ "rtrb",
+ "serde",
  "serde_json",
 ]
 
