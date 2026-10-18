@@ -46,6 +46,24 @@ work yet, it says so here.
   paste-from-clipboard button (arboard), an inline directory browser
   and drag&drop, because a Wayland clipboard bridge can be silent even
   when the app is healthy.
+* **The sequencer is a home-built Channel Rack.** No ready-made egui
+  drum-rack widget covers this app's semantics (shared lane model with
+  velocity accents/ghosts/flam, chain bank, engine-driven playhead), so
+  the grid is implemented directly on egui primitives: one allocated
+  cell response per step, fixed left column, spacing-profile ruler that
+  reuses the exact same spacing math as the rows, and a playhead fed by
+  `EngineWatch` (engine-side atomics, polled — no reverse command
+  channel, no locks on the audio path).
+* **Silence is surfaced, never silent-invisible.** Kits load through
+  the ring exactly like every other command; when a load fails the
+  engine sets `EngineWatch.kit_error` and the GUI status bar shows
+  `⚠ no kit loaded` instead of only a stderr line nobody watches. The
+  standalone additionally passes an `AudioStatusSnapshot` so the bar
+  distinguishes "streaming 48 kHz / 2 ch" from "no device".
+* **Demo beat on kit load.** A loaded kit with an empty pattern seeds a
+  classic one-bar groove (kick 0/10, snare 4/12, closed hats 2/6/10/14,
+  name-matched with deterministic fallbacks, unit-tested) — the first
+  user action after `Load Kit` is audibly rewarded.
 
 ## Wrappers
 

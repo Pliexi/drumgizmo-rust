@@ -160,16 +160,36 @@ round-robins, choke groups, `drumkit.xml` + `midimap.xml`):
 3. Run: `./target/release/drumgizmo-rust ~/kits/mugen/`
    or `--kit ~/kits/mugen` — the folder with `drumkit.xml` inside.
 
-### 3.5 GUI controls
+### 3.5 Sequencer (Channel Rack)
 
-Three tabs: **Kit** (loaded kit tree + sample inspection),
-**Sequencer** (pattern editor), **Inspector** (voices/detail watch).
+The **Sequencer** tab is a FL-Studio-style drum rack: a fixed instrument
+column on the left, a bar-numbered ruler locked to the step grid and a
+large beat-grouped cell grid (groups of four steps, brighter bar starts).
 
-| Key | Action |
+| Input | Action |
 | --- | --- |
-| `Space` | start/stop the sequencer transport |
-| `Ctrl+Z` / `Ctrl+Y` | undo / redo pattern edits |
-| `1`–`9` | select lane 1–9 |
+| **▶ / ⏹** button or `Space` | start / stop the transport |
+| left click / left-drag | add / paint steps |
+| right click / right-drag | erase steps (FL semantics) |
+| middle click | toggle the *choke* articulation on a step |
+| mouse wheel on a step | velocity trim (Inspector edits longer tails) |
+| instrument name click | one preview hit at velocity 114 |
+| `1`–`9` | select lane |
+| `Ctrl+Z` / `Ctrl+Y` | undo / redo |
+
+While the transport runs, the **playhead column glows amber** in the
+grid and lies exactly on the step the engine is sounding (the GUI polls
+the engine's realtime watch — no drift, no guessing).
+
+A freshly loaded kit **seeds a demo beat** (kick 0/10 · snare 4/12 ·
+closed hats offbeat across all bars): press ▶ and hear it immediately.
+Every lane name shows the instrument and its MIDI note; empty kits with
+unusual names fall back to the first three lanes.
+
+The **status bar** is honest about sound: 🎧 shows the live output
+device (`48000 Hz / 2 ch`) or the exact silence reason (`no device: …`,
+`stream failed: …`), and the kit state comes straight from the engine:
+`🥁 kit vN` or `⚠ no kit loaded` with the load error flagged on failure.
 
 ---
 

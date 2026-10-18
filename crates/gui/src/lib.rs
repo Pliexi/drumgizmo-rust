@@ -13,6 +13,7 @@
 //! platform); logic helpers are pure where possible.
 
 mod app;
+mod demo;
 mod inspector;
 mod kit_tab;
 mod seq_tab;
@@ -21,6 +22,7 @@ mod summary;
 pub use app::{DrumApp, Mode};
 
 use dg_common::SharedProducer;
+
 use dg_sequencer::Pattern;
 
 /// Options for launching the window (standalone binary builds these).
@@ -34,6 +36,10 @@ pub struct AppOptions {
     pub master_gain: f32,
     /// Window scale multiplier (DPI aware; 0.0 = let the platform decide).
     pub scale_override: f32,
+    /// Audio output snapshot from the host (status bar display).
+    pub audio: Option<dg_common::AudioStatusSnapshot>,
+    /// Realtime mirror from the engine (transport position etc.).
+    pub watch: Option<std::sync::Arc<dg_engine::EngineWatch>>,
 }
 
 impl Default for AppOptions {
@@ -43,6 +49,8 @@ impl Default for AppOptions {
             pattern: Pattern::default(),
             master_gain: 1.0,
             scale_override: 0.0,
+            audio: None,
+            watch: None,
         }
     }
 }

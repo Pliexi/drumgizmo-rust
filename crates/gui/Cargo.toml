@@ -22,3 +22,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+dg-engine = { workspace = true }
+dg-kit = { workspace = true }
+dg-sequencer = { workspace = true }
+serde_json = { workspace = true }
+

@@ -43,3 +43,19 @@ mod tests {
         assert!(ratio_from_dbfs(0.0) == 1.0);
     }
 }
+
+/// Plain snapshot of the standalone audio output state, surfaced in the
+/// GUI status bar so silence gets a visible reason (no device, stream
+/// refused, running normally). Filled once at startup by the host; the
+/// GUI displays it verbatim.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AudioStatusSnapshot {
+    /// Output stream exists and plays (or played) audio.
+    pub running: bool,
+    /// Agreed samplerate (0 when unavailable).
+    pub sample_rate: u32,
+    /// Agreed channel count (0 when unavailable).
+    pub channels: u16,
+    /// Human readable note: success text or the failure reason.
+    pub note: String,
+}

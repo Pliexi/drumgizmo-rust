@@ -230,6 +230,12 @@ impl Sequencer {
         self.playing
     }
 
+    /// Step index inside the currently scheduled pattern (wraps at its
+    /// length; used by the GUI playhead display).
+    pub fn position_step(&self) -> usize {
+        self.cursor
+    }
+
     /// Current chain position (`None` when no chain is active).
     pub fn chain_position(&self) -> Option<usize> {
         if self.chain.is_empty() {

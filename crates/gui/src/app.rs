@@ -7,7 +7,8 @@ use rtrb::Producer;
 
 use egui::{Context, Key, Modifiers};
 
-use dg_common::{MessageType, MidiEvent, RtCommand, SharedProducer};
+use dg_common::{AudioStatusSnapshot, MessageType, MidiEvent, RtCommand, SharedProducer};
+use dg_engine::EngineWatch;
 use dg_sequencer::Pattern;
 
 use crate::summary::KitSummary;
@@ -41,6 +42,10 @@ pub struct DrumApp {
     pub(crate) mode: Mode,
     /// Status text that the bottom bar shows.
     status: String,
+    /// Host-provided audio output snapshot (status bar).
+    pub(crate) audio: Option<AudioStatusSnapshot>,
+    /// Realtime transport mirror fed by the engine's watch.
+    pub(crate) watch: Option<std::sync::Arc<EngineWatch>>,
 
     // --- kit tab ---
     pub(crate) kit_dir_entry: String,
@@ -59,6 +64,8 @@ pub struct DrumApp {
     pub(crate) default_step_velocity: f32,
     /// While dragging a lane toggles, the drag applies this state.
     pub(crate) drag_paint: Option<bool>,
+    /// Cell of the last wheel-velocity edit (snapshot de-duplication).
+    pub(crate) velocity_edited: Option<(usize, usize)>,
     pub(crate) tempo: f64,
     pub(crate) midi_import_path: String,
     pub(crate) midi_export_path: String,
@@ -98,6 +105,7 @@ impl DrumApp {
             selected_step: 0,
             default_step_velocity: 0.8,
             drag_paint: None,
+            velocity_edited: None,
             drag_snapshot_pending: false,
             tempo: 120.0,
             midi_import_path: String::new(),
@@ -106,7 +114,11 @@ impl DrumApp {
             undo: Vec::new(),
             redo: Vec::new(),
             pattern_dirty: false,
+            audio: None,
+            watch: None,
         };
+        app.audio = options.audio;
+        app.watch = options.watch;
         if !options.kit_path.is_empty() {
             app.request_kit_load(options.kit_path);
         }
@@ -162,6 +174,17 @@ impl DrumApp {
         }
     }
 
+    /// True when the current pattern holds no enabled step (used by the
+    /// demo-beat seeding decision on kit load).
+    fn pattern_is_empty(&self) -> bool {
+        !self
+            .pattern
+            .lanes
+            .iter()
+            .flat_map(|lane| lane.steps.iter().map(|step| step.enabled))
+            .any(|enabled| enabled)
+    }
+
     /// Loads a kit: UI side parses (instant summary), audio side gets the
     /// asynchronous LoadKit command.
     pub fn request_kit_load(&mut self, path: String) {
@@ -178,13 +201,30 @@ impl DrumApp {
                 let lanes = summary.default_lanes(self.pattern.length);
                 self.snapshot_pattern();
                 self.pattern.lanes = lanes;
+                // Empty pattern? Seed a demo beat: the user hears sound
+                // from the transport immediately (instant "kit works"
+                // feedback) and can overwrite/erase freely.
+                let demonstration = self.pattern_is_empty();
+                if demonstration {
+                    let names: Vec<String> = self
+                        .pattern
+                        .lanes
+                        .iter()
+                        .map(|lane| summary.lane_name(lane.instrument_id))
+                        .collect();
+                    crate::demo::seed_pattern(&mut self.pattern, &names);
+                }
                 self.mark_pattern_dirty();
                 self.voice_gains = vec![1.0; summary.instrument_count];
                 self.selected_step = self
                     .selected_step
                     .min(self.pattern.length.saturating_sub(1));
                 self.kit_summary = Some(summary);
-                self.status = format!("Kit loaded: {path}");
+                self.status = if demonstration {
+                    format!("Kit loaded: {path} — demo beat seeded, press ▶")
+                } else {
+                    format!("Kit loaded: {path}")
+                };
             }
             Err(error) => {
                 self.kit_error = Some(error);
@@ -265,23 +305,6 @@ impl DrumApp {
             self.mark_pattern_dirty();
             self.set_status("Lanes adopted from kit midimap");
         }
-    }
-
-    /// Sets the enabled flag of one grid cell and stamps the pattern.
-    pub(crate) fn apply_step_paint(&mut self, lane_index: usize, step: usize, paint: bool) {
-        let Some(lane) = self.pattern.lanes.get_mut(lane_index) else {
-            return;
-        };
-        if step >= self.pattern.length {
-            return;
-        }
-        lane.ensure_length(step + 1);
-        let step_data = &mut lane.steps[step];
-        step_data.enabled = paint;
-        if paint {
-            step_data.velocity = self.default_step_velocity;
-        }
-        self.mark_pattern_dirty();
     }
 
     /// Keeps the selected step inside the pattern length (long used
@@ -392,6 +415,20 @@ impl DrumApp {
             self.status = "Sequencer stopped".into();
         }
     }
+
+    /// Sends the transport start; used by the visible buttons too.
+    pub(crate) fn transport_start(&mut self) {
+        if !self.playing {
+            self.toggle_transport();
+        }
+    }
+
+    /// Sends the transport stop; used by the visible buttons too.
+    pub(crate) fn transport_stop(&mut self) {
+        if self.playing {
+            self.toggle_transport();
+        }
+    }
 }
 
 impl eframe::App for DrumApp {
@@ -449,8 +486,42 @@ impl eframe::App for DrumApp {
 
         egui::Panel::bottom("status_bar").show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(format!("Tempo: {:.1} BPM", self.tempo));
+                // Audio output snapshot from the host: the reason silence
+                // has a face (device missing, stream refused, or OK).
+                if let Some(audio) = &self.audio {
+                    if audio.running {
+                        ui.label(format!(
+                            "🎧 {} Hz / {} ch",
+                            audio.sample_rate, audio.channels
+                        ));
+                    } else {
+                        ui.colored_label(
+                            egui::Color32::from_rgb(220, 140, 60),
+                            format!("🎧 silent: {}", audio.note),
+                        );
+                    }
+                    ui.separator();
+                }
+                // Engine kit state mirror.
+                let kit_generation = self
+                    .watch
+                    .as_ref()
+                    .map(|watch| {
+                        watch
+                            .kit_generation
+                            .load(std::sync::atomic::Ordering::Acquire)
+                    })
+                    .unwrap_or(0);
+                if kit_generation == 0 {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(220, 90, 90),
+                        "⚠ no kit loaded (Kit tab)",
+                    );
+                } else {
+                    ui.label(format!("🥁 kit v{}", kit_generation));
+                }
                 ui.separator();
+                ui.label(format!("Tempo: {:.1} BPM", self.tempo));
                 ui.label(format!(
                     "Pattern: {} · {} steps · lanes: {}",
                     self.pattern.name,

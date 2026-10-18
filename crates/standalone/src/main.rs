@@ -200,31 +200,61 @@ pub fn run(config: &Config) -> Result<(), String> {
     //    stream configuration must be known before the engine pair.
     //    Both failure paths keep the app alive with a silent 44.1 kHz
     //    pair so the GUI stays functional without a sound card.
-    let (stream_result, engine_slot, producer) = match OutputSetup::detect() {
+    let (stream_result, engine_slot, producer, watch, audio_status) = match OutputSetup::detect() {
         Ok(setup) => {
             let (engine, producer) =
                 dg_engine::engine_pair(u64::from(setup.config.sample_rate), COMMAND_CAPACITY);
+            let watch = engine.watch();
             let producer: SharedProducer = shared(producer);
             match setup.build(engine) {
-                Ok(stream) => (Ok(stream), EngineSlot::Running, producer),
-                Err(error) => {
-                    eprintln!("warning: audio stream failed: {error}; running silent");
+                Ok(stream) => {
+                    let status = dg_common::AudioStatusSnapshot {
+                        running: true,
+                        sample_rate: stream.sample_rate,
+                        channels: stream.channels,
+                        note: format!(
+                            "{} Hz / {} ch streaming",
+                            stream.sample_rate, stream.channels
+                        ),
+                    };
+                    (Ok(stream), EngineSlot::Running, producer, watch, status)
+                }
+                Err(stream_error) => {
+                    eprintln!("warning: audio stream failed: {stream_error}; running silent");
                     let (engine, producer) = dg_engine::engine_pair(44100, COMMAND_CAPACITY);
+                    let watch = engine.watch();
+                    let status = dg_common::AudioStatusSnapshot {
+                        running: false,
+                        sample_rate: 0,
+                        channels: 0,
+                        note: format!("stream failed: {stream_error}"),
+                    };
                     (
-                        Err(error),
+                        Err(stream_error),
                         EngineSlot::Silent(Box::new(engine)),
                         shared(producer),
+                        watch,
+                        status,
                     )
                 }
             }
         }
-        Err(error) => {
-            eprintln!("warning: no output device: {error}; running silent");
+        Err(device_error) => {
+            eprintln!("warning: no output device: {device_error}; running silent");
             let (engine, producer) = dg_engine::engine_pair(44100, COMMAND_CAPACITY);
+            let watch = engine.watch();
+            let status = dg_common::AudioStatusSnapshot {
+                running: false,
+                sample_rate: 0,
+                channels: 0,
+                note: format!("no device: {device_error}"),
+            };
             (
-                Err(error),
+                Err(device_error),
                 EngineSlot::Silent(Box::new(engine)),
                 shared(producer),
+                watch,
+                status,
             )
         }
     };
@@ -257,6 +287,8 @@ pub fn run(config: &Config) -> Result<(), String> {
         kit_path: config.kit_path.clone(),
         master_gain: config.gain,
         scale_override: config.scale,
+        audio: Some(audio_status),
+        watch: Some(watch),
         ..Default::default()
     };
     let gui_result = dg_gui::run(options, producer);

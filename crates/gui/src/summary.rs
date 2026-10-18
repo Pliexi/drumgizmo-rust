@@ -96,6 +96,12 @@ impl KitSummary {
             .collect()
     }
 
+    /// Display name of the lane's instrument by id (used by the demo beat
+    /// heuristics and the grid).
+    pub fn lane_name(&self, id: usize) -> String {
+        self.instrument_name(id).to_string()
+    }
+
     /// Instrument display name by engine id.
     pub fn instrument_name(&self, id: usize) -> &str {
         self.instruments

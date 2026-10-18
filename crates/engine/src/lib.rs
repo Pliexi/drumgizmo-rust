@@ -11,6 +11,7 @@
 //!   kit stays alive until no reference is held,
 //! * no mutexes and no allocation in the render path.
 
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use dg_common::rng::Rand;
@@ -44,6 +45,21 @@ pub struct SeqSnapshot {
     pub patterns: Vec<Pattern>,
     pub chain: Vec<ChainEntry>,
     pub loop_chain: bool,
+}
+
+/// Read-only realtime mirror for the GUI: the transport position and
+/// kit-availability state. The engine updates the atomics inside its
+/// render blocks; hosts poll them, no locks on the audio path.
+#[derive(Debug, Default)]
+pub struct EngineWatch {
+    /// Step inside the currently scheduled pattern (wraps at length).
+    pub step_index: AtomicU64,
+    /// True while the sequencer transport runs.
+    pub playing: AtomicBool,
+    /// Kit generation of the last successful install (0 = none yet).
+    pub kit_generation: AtomicU64,
+    /// Set when a kit load failed; details stay on stderr.
+    pub kit_error: AtomicBool,
 }
 
 /// The realtime engine: consumes commands + MIDI + sequencer output and
@@ -89,6 +105,8 @@ pub struct Engine {
     /// Bumped on every kit install; guards the stereo scratch ownership
     /// against mid-block kit loads.
     kit_generation: u64,
+    /// Read-only realtime mirror for hosts (step, transport, kit state).
+    watch: Arc<EngineWatch>,
 }
 
 /// Which kit channels to sum into the stereo output mix (main channels), or
@@ -148,7 +166,14 @@ impl Engine {
             scratch: Vec::new(),
             stereo_mix: StereoMix::default(),
             kit_generation: 0,
+            watch: Arc::new(EngineWatch::default()),
         }
+    }
+
+    /// Handle to the realtime mirror (transport position, kit presence).
+    /// Gracefully shared with hosts after the engine moved elsewhere.
+    pub fn watch(&self) -> Arc<EngineWatch> {
+        Arc::clone(&self.watch)
     }
 
     /// Feed one MIDI event that belongs to the **next** rendered block
@@ -224,7 +249,6 @@ impl Engine {
     /// Replaces the kit; `midimap` resolves MIDI notes (None = no triggers,
     /// upstream shows the kit but cannot sound without a midimap).
     pub fn set_kit(&mut self, kit: Arc<LoadedKit>, midimap: Option<&[MidimapEntry]>) {
-        self.kit_generation += 1;
         self.selection = kit
             .instruments
             .iter()
@@ -267,6 +291,11 @@ impl Engine {
         };
 
         self.kit = Some(kit);
+        self.kit_generation += 1;
+        self.watch
+            .kit_generation
+            .store(self.kit_generation, Ordering::Release);
+        self.watch.kit_error.store(false, Ordering::Release);
     }
 
     /// Starts an asynchronous kit load; on completion the engine parses
@@ -289,6 +318,7 @@ impl Engine {
             }
             Some(Err(e)) => {
                 self.loader = None;
+                self.watch.kit_error.store(true, Ordering::Release);
                 eprintln!("kit load failed: {e:?}");
             }
         }
@@ -315,10 +345,13 @@ impl Engine {
                 if !self.sequencer.is_playing() {
                     self.sequencer.start(0.0);
                 }
+                self.watch.playing.store(true, Ordering::Release);
             }
             RtCommand::SeqStop => {
                 self.sequencer_active = false;
                 self.sequencer.stop();
+                self.watch.playing.store(false, Ordering::Release);
+                self.watch.step_index.store(0, Ordering::Release);
             }
             RtCommand::SeqTempo { bpm } => {
                 // Explicit tempo commands (GUI drag, plugin tempo
@@ -475,8 +508,13 @@ impl Engine {
     /// Sequencer events inside the upcoming block become engine requests.
     fn poll_sequencer(&mut self, block_size: usize) -> bool {
         if !self.sequencer_active || !self.sequencer.is_playing() {
+            self.watch.playing.store(false, Ordering::Release);
+            self.watch.step_index.store(0, Ordering::Release);
             return false;
         }
+        self.watch
+            .step_index
+            .store(self.sequencer.position_step() as u64, Ordering::Release);
         let until = self.frames_played + block_size as u64;
         let events = self.sequencer.poll(until);
         let any = !events.is_empty();
