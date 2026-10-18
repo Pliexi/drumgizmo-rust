@@ -97,7 +97,8 @@ pub struct LV2Descriptor {
             features: *const *const LV2Feature,
         ) -> *mut c_void,
     >,
-    pub connect_port: Option<unsafe extern "C" fn(instance: *mut c_void, port: u32, data: *mut c_void)>,
+    pub connect_port:
+        Option<unsafe extern "C" fn(instance: *mut c_void, port: u32, data: *mut c_void)>,
     pub activate: Option<unsafe extern "C" fn(instance: *mut c_void)>,
     pub run: Option<unsafe extern "C" fn(instance: *mut c_void, sample_count: u32)>,
     pub deactivate: Option<unsafe extern "C" fn(instance: *mut c_void)>,
@@ -404,7 +405,7 @@ mod tests {
     #[test]
     fn empty_sequence_yields_no_events() {
         // Only the 16 byte header: size = 8 (empty event region).
-        let mut buffer = vec![0u8; 16];
+        let mut buffer = [0u8; 16];
         buffer[0..4].copy_from_slice(&8u32.to_ne_bytes());
         buffer[4..8].copy_from_slice(&99u32.to_ne_bytes());
         let events = unsafe { parse_sequence_events(buffer.as_ptr(), 99) };

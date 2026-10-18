@@ -275,12 +275,3 @@ fn generated_kit_two_runs_identical_bytes() {
     let xml2 = generate_test_kit(&dir2, 22050, TestKitFlavour::Small).unwrap();
     assert_eq!(std::fs::read(&xml1).unwrap(), std::fs::read(&xml2).unwrap());
 }
-
-#[cfg(test)]
-mod fixture {
-    /// Writes the CI/"committed" test kit; called by `kitgen` binary.
-    pub fn write_committed_kit(dir: &std::path::Path) -> std::path::PathBuf {
-        dg_kit::kitgen::generate_test_kit(dir, 44100, dg_kit::kitgen::TestKitFlavour::Small)
-            .expect("test kit generation")
-    }
-}

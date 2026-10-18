@@ -417,7 +417,10 @@ mod tests {
         assert_eq!(events[1].frame, 5512, "cursor 1 starts at 5512.5");
         assert_eq!(events[2].frame, 11025, "cursor 2 at 2*5512.5");
         assert_eq!(events[3].frame, 16537, "cursor 3 at 3*5512.5");
-        assert_eq!(events.iter().map(|e| e.instrument_id).collect::<Vec<_>>(), vec![0; 4]);
+        assert_eq!(
+            events.iter().map(|e| e.instrument_id).collect::<Vec<_>>(),
+            vec![0; 4]
+        );
     }
 
     #[test]
@@ -480,7 +483,10 @@ mod tests {
     fn micro_offset_moves_within_half_step() {
         let mut seq = sequencer(5);
         let mut lane = Lane::new(0, 36, 16);
-        lane.steps[0] = Step { micro_offset: 0.5, ..Step::hit(0.8) };
+        lane.steps[0] = Step {
+            micro_offset: 0.5,
+            ..Step::hit(0.8)
+        };
         seq.patterns[0].lanes.push(lane);
         seq.start(0.0);
         let events = seq.poll(11000);
@@ -510,7 +516,11 @@ mod tests {
         // velocities stay in the musical range
         for event in &ea {
             assert!(event.velocity >= MIN_VELOCITY && event.velocity <= 1.0);
-            assert!(event.velocity > 0.4, "jitter is moderate: {}", event.velocity);
+            assert!(
+                event.velocity > 0.4,
+                "jitter is moderate: {}",
+                event.velocity
+            );
         }
     }
 
@@ -518,9 +528,18 @@ mod tests {
     fn probability_and_choke() {
         let mut seq = sequencer(9);
         let mut lane = Lane::new(0, 36, 16);
-        lane.steps[0] = Step { probability: 0.0, ..Step::hit(0.8) };
-        lane.steps[1] = Step { probability: 1.0, ..Step::hit(0.8) };
-        lane.steps[2] = Step { choke: true, ..Step::hit(0.8) };
+        lane.steps[0] = Step {
+            probability: 0.0,
+            ..Step::hit(0.8)
+        };
+        lane.steps[1] = Step {
+            probability: 1.0,
+            ..Step::hit(0.8)
+        };
+        lane.steps[2] = Step {
+            choke: true,
+            ..Step::hit(0.8)
+        };
         seq.patterns[0].lanes.push(lane);
         seq.start(0.0);
         let events = seq.poll(20_000);
@@ -533,8 +552,14 @@ mod tests {
     fn accent_ghost_scale_velocity() {
         let mut seq = sequencer(10);
         let mut lane = Lane::new(0, 36, 16);
-        lane.steps[0] = Step { accent: true, ..Step::hit(0.8) };
-        lane.steps[1] = Step { ghost: true, ..Step::hit(0.8) };
+        lane.steps[0] = Step {
+            accent: true,
+            ..Step::hit(0.8)
+        };
+        lane.steps[1] = Step {
+            ghost: true,
+            ..Step::hit(0.8)
+        };
         lane.steps[2] = Step::hit(0.8);
         seq.patterns[0].lanes.push(lane);
         seq.start(0.0);
@@ -555,7 +580,10 @@ mod tests {
         let mut seq = sequencer(11);
         let mut lane = Lane::new(0, 36, 16);
         // flam on step 1: step 0's grace would clamp to frame 0
-        lane.steps[1] = Step { flam: true, ..Step::hit(1.0) };
+        lane.steps[1] = Step {
+            flam: true,
+            ..Step::hit(1.0)
+        };
         seq.patterns[0].lanes.push(lane);
         seq.start(0.0);
         let events = seq.poll(6000);
@@ -573,7 +601,10 @@ mod tests {
         let mut seq = sequencer(12);
         let mut lane = Lane::new(0, 36, 16);
         lane.steps[0] = Step {
-            repeat: Some(Repeat { count: 4, falloff: 0.5 }),
+            repeat: Some(Repeat {
+                count: 4,
+                falloff: 0.5,
+            }),
             ..Step::hit(1.0)
         };
         seq.patterns[0].lanes.push(lane);
@@ -630,8 +661,14 @@ mod tests {
         });
 
         seq.chain = vec![
-            ChainEntry { pattern: 0, repeats: 1 },
-            ChainEntry { pattern: 1, repeats: 1 },
+            ChainEntry {
+                pattern: 0,
+                repeats: 1,
+            },
+            ChainEntry {
+                pattern: 1,
+                repeats: 1,
+            },
         ];
         seq.loop_chain = false;
         seq.patterns[0].lanes = vec![kick_lane()];
@@ -659,7 +696,10 @@ mod tests {
         lane.steps[0] = Step::hit(1.0);
         seq.patterns[0].lanes.push(lane);
         // pattern 0 plays twice before the chain moves on
-        seq.chain = vec![ChainEntry { pattern: 0, repeats: 2 }];
+        seq.chain = vec![ChainEntry {
+            pattern: 0,
+            repeats: 2,
+        }];
         seq.loop_chain = false;
         seq.start(0.0);
         // first pass starts at 0, the second one at 16 * 5512.5 = 88_200
@@ -679,8 +719,14 @@ mod tests {
         let mut seq = sequencer(16);
         seq.patterns.push(Pattern::default());
         seq.chain = vec![
-            ChainEntry { pattern: 0, repeats: 1 },
-            ChainEntry { pattern: 0, repeats: 1 },
+            ChainEntry {
+                pattern: 0,
+                repeats: 1,
+            },
+            ChainEntry {
+                pattern: 0,
+                repeats: 1,
+            },
         ];
         seq.patterns[0].lanes = vec![kick_lane()];
         seq.start(0.0);
@@ -706,7 +752,10 @@ mod tests {
             ..Step::default()
         };
         pattern.lanes[0].steps[1] = Step {
-            repeat: Some(Repeat { count: 3, falloff: 0.6 }),
+            repeat: Some(Repeat {
+                count: 3,
+                falloff: 0.6,
+            }),
             ..Step::hit(0.9)
         };
         let json = serde_json::to_string(&pattern).expect("serialize");

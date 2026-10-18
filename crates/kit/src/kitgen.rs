@@ -329,7 +329,8 @@ pub fn generate_test_kit(
         // kit with any explicit main makes everything else not-main via
         // the loader defaulting.
         let main_left_attr = if flavour == TestKitFlavour::MainSum
-            && (instrument.kit_channel_left == "Kick In" || instrument.kit_channel_left == "Snare In")
+            && (instrument.kit_channel_left == "Kick In"
+                || instrument.kit_channel_left == "Snare In")
         {
             " main=\"true\""
         } else {
@@ -347,8 +348,7 @@ pub fn generate_test_kit(
         ));
         kit_xml.push_str(&format!(
             "    <channelmap in=\"Main L\" out=\"{}\"{}/>\n",
-            instrument.kit_channel_left,
-            main_left_attr
+            instrument.kit_channel_left, main_left_attr
         ));
         kit_xml.push_str(&format!(
             "    <channelmap in=\"Main R\" out=\"{}\"/>\n",

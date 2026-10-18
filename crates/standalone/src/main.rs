@@ -210,14 +210,22 @@ pub fn run(config: &Config) -> Result<(), String> {
                 Err(error) => {
                     eprintln!("warning: audio stream failed: {error}; running silent");
                     let (engine, producer) = dg_engine::engine_pair(44100, COMMAND_CAPACITY);
-                    (Err(error), EngineSlot::Silent(Box::new(engine)), shared(producer))
+                    (
+                        Err(error),
+                        EngineSlot::Silent(Box::new(engine)),
+                        shared(producer),
+                    )
                 }
             }
         }
         Err(error) => {
             eprintln!("warning: no output device: {error}; running silent");
             let (engine, producer) = dg_engine::engine_pair(44100, COMMAND_CAPACITY);
-            (Err(error), EngineSlot::Silent(Box::new(engine)), shared(producer))
+            (
+                Err(error),
+                EngineSlot::Silent(Box::new(engine)),
+                shared(producer),
+            )
         }
     };
 
@@ -263,7 +271,11 @@ pub fn run(config: &Config) -> Result<(), String> {
             "audio: {} frames rendered, final peak {:+.3}{}",
             stats.frames(),
             stats.take_peak(),
-            if stats.failed() { ", stream failed" } else { "" }
+            if stats.failed() {
+                ", stream failed"
+            } else {
+                ""
+            }
         );
     }
     match gui_result {
@@ -312,8 +324,7 @@ mod tests {
 
     #[test]
     fn flags_with_equals_and_separate_values() {
-        match parse_args(&args(&["--kit=kits/a", "--midi-in", "MP3", "--gain=2.5"]))
-            .expect("flags")
+        match parse_args(&args(&["--kit=kits/a", "--midi-in", "MP3", "--gain=2.5"])).expect("flags")
         {
             Action::Run(config) => {
                 assert_eq!(config.kit_path, "kits/a");
@@ -336,8 +347,14 @@ mod tests {
 
     #[test]
     fn special_actions() {
-        assert!(matches!(parse_args(&args(&["--version"])), Ok(Action::Version)));
+        assert!(matches!(
+            parse_args(&args(&["--version"])),
+            Ok(Action::Version)
+        ));
         assert!(matches!(parse_args(&args(&["--help"])), Ok(Action::Help)));
-        assert!(matches!(parse_args(&args(&["--list-midi"])), Ok(Action::ListMidi)));
+        assert!(matches!(
+            parse_args(&args(&["--list-midi"])),
+            Ok(Action::ListMidi)
+        ));
     }
 }

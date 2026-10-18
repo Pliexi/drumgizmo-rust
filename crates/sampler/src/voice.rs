@@ -296,9 +296,7 @@ impl VoiceManager {
         delay_frames: f64,
     ) {
         for voice in &mut self.voices {
-            if voice.active
-                && !voice.rampdown_in_progress()
-                && voice.instrument_id == instrument_id
+            if voice.active && !voice.rampdown_in_progress() && voice.instrument_id == instrument_id
             {
                 arm_ramp_down(voice, ramp_length, delay_frames);
             }
@@ -308,7 +306,13 @@ impl VoiceManager {
     /// `InputProcessor::limitVoices`: when more than `max_voices`
     /// non-ramping voices of an instrument are active, the eldest is choked
     /// with `ramp_ms` (upstream default 0.5 ms).
-    pub fn limit_voices(&mut self, instrument_id: usize, max_voices: usize, ramp_ms: f64, samplerate: u64) {
+    pub fn limit_voices(
+        &mut self,
+        instrument_id: usize,
+        max_voices: usize,
+        ramp_ms: f64,
+        samplerate: u64,
+    ) {
         let mut non_ramping: Vec<usize> = self
             .voices
             .iter()
@@ -325,7 +329,11 @@ impl VoiceManager {
 
         non_ramping.sort_by_key(|&i| self.voices[i].spawned);
         let eldest = non_ramping[0];
-        arm_ramp_down(&mut self.voices[eldest], ramp_frames(ramp_ms, samplerate), 0.0);
+        arm_ramp_down(
+            &mut self.voices[eldest],
+            ramp_frames(ramp_ms, samplerate),
+            0.0,
+        );
     }
 
     /// Number of active voices.
@@ -539,12 +547,12 @@ mod tests {
         manager.render(&bank, &mut [&mut out]);
         // envelope: length/length, .., 1/length, then removed (0 afterwards)
         assert!((out[0] - 1.0).abs() < 1e-6);
-        for k in 1..ramp as usize {
+        for (k, frame) in out.iter().enumerate().take(ramp as usize).skip(1) {
             let expected = (ramp as f32 - k as f32) / ramp as f32;
             assert!(
-                (out[k] - expected).abs() < 1e-5,
+                (frame - expected).abs() < 1e-5,
                 "frame {k}: {} vs {expected}",
-                out[k]
+                frame
             );
         }
         assert_eq!(out[ramp as usize], 0.0, "voice removed after ramp");

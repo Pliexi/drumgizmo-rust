@@ -14,14 +14,13 @@
 use std::sync::Arc;
 
 use dg_common::rng::Rand;
-use dg_common::{MidiEvent, MessageType, RtCommand, Sample, NO_CHANNEL};
+use dg_common::{MessageType, MidiEvent, RtCommand, Sample, NO_CHANNEL};
 use dg_kit::dom::MainState;
 use dg_kit::parser::MidimapEntry;
 use dg_kit::{KitLoader, LoadedKit};
 use dg_sampler::{
-    ramp_frames, SampleBank, SelectionStrategy, VoiceEvent, VoiceManager,
-    CHOKE_EVENT_RAMPDOWN_MS, GROUP_RAMPDOWN_MS, VOICE_LIMIT_MAX_DEFAULT,
-    VOICE_LIMIT_RAMPDOWN_DEFAULT_MS,
+    ramp_frames, SampleBank, SelectionStrategy, VoiceEvent, VoiceManager, CHOKE_EVENT_RAMPDOWN_MS,
+    GROUP_RAMPDOWN_MS, VOICE_LIMIT_MAX_DEFAULT, VOICE_LIMIT_RAMPDOWN_DEFAULT_MS,
 };
 use dg_sequencer::{ChainEntry, Pattern, Sequencer, StepEventKind};
 use rtrb::Consumer;
@@ -278,7 +277,9 @@ impl Engine {
 
     /// Polls a finished load once per block; non-blocking.
     fn take_loader_result(&mut self) {
-        let Some(loader) = self.loader.as_mut() else { return };
+        let Some(loader) = self.loader.as_mut() else {
+            return;
+        };
         match loader.poll() {
             None => {} // still loading
             Some(Ok(kit)) => {
@@ -307,9 +308,7 @@ impl Engine {
             RtCommand::Midi(event) => self.push_midi(event),
             RtCommand::LoadKit { path } => self.load_kit(&path),
             RtCommand::MasterGain { gain } => self.set_master_gain(gain),
-            RtCommand::VoiceGain { instrument, gain } => {
-                self.set_voice_gain(instrument, gain)
-            }
+            RtCommand::VoiceGain { instrument, gain } => self.set_voice_gain(instrument, gain),
             RtCommand::Panic => self.panic(),
             RtCommand::SeqStart => {
                 self.sequencer_active = true;
@@ -377,8 +376,11 @@ impl Engine {
         // 2. directed chokes of the instrument (per choketime)
         for (target, choketime_ms) in self.directed_chokes.iter() {
             if *target != instrument {
-                self.voices
-                    .apply_choke_instrument(*target, ramp_frames(*choketime_ms, self.samplerate), delay);
+                self.voices.apply_choke_instrument(
+                    *target,
+                    ramp_frames(*choketime_ms, self.samplerate),
+                    delay,
+                );
             }
         }
 
@@ -408,8 +410,12 @@ impl Engine {
 
         // 5. one voice per (file, filechannel → kit channel) mapping
         let Some(kit) = &self.kit else { return };
-        let Some(instrument_kit) = kit.instruments.get(instrument) else { return };
-        let Some(sample) = instrument_kit.samples.get(sample_index) else { return };
+        let Some(instrument_kit) = kit.instruments.get(instrument) else {
+            return;
+        };
+        let Some(sample) = instrument_kit.samples.get(sample_index) else {
+            return;
+        };
         let voice_gain = self.voice_gains.get(instrument).copied().unwrap_or(1.0);
 
         for mapping in &sample.audiofiles {
@@ -446,9 +452,7 @@ impl Engine {
                 scale: voice_gain * normalized_scale * bleed_scale,
                 group_id,
             };
-            let frames = kit
-                .channel(mapping.file_index, mapping.filechannel)
-                .len() as u64;
+            let frames = kit.channel(mapping.file_index, mapping.filechannel).len() as u64;
             // Files decode at the engine rate already; step == 1.0.
             self.voices.spawn(&event, frames, 1.0);
         }
@@ -456,8 +460,11 @@ impl Engine {
 
     /// Upstream `processChoke` port: ramps the instrument's voices down.
     fn process_choke(&mut self, instrument: usize, offset: usize) {
-        self.voices
-            .apply_choke_instrument(instrument, ramp_frames(CHOKE_EVENT_RAMPDOWN_MS, self.samplerate), offset as f64);
+        self.voices.apply_choke_instrument(
+            instrument,
+            ramp_frames(CHOKE_EVENT_RAMPDOWN_MS, self.samplerate),
+            offset as f64,
+        );
     }
 
     /// True while neither voices nor the sequencer make sound.
@@ -590,8 +597,7 @@ impl Engine {
             }
             buffer[..block_size.min(len)].fill(0.0);
         }
-        let mut views: Vec<&mut [Sample]> =
-            scratch.iter_mut().map(|b| b.as_mut_slice()).collect();
+        let mut views: Vec<&mut [Sample]> = scratch.iter_mut().map(|b| b.as_mut_slice()).collect();
         let events = self.render_block(&mut views, midi);
         drop(views);
 

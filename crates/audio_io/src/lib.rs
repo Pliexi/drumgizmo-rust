@@ -20,7 +20,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, StreamConfig};
 use midir::{MidiInput, MidiInputConnection, MidiInputPort};
 
-use dg_common::{MidiEvent, MessageType, RtCommand, SharedProducer};
+use dg_common::{MessageType, MidiEvent, RtCommand, SharedProducer};
 use dg_engine::Engine;
 
 /// Decode raw short MIDI bytes as delivered by a midir input callback
@@ -146,10 +146,12 @@ impl StreamStats {
             if f32::from_bits(observed) >= peak {
                 return;
             }
-            match self
-                .peak
-                .compare_exchange(observed, peak_bits, Ordering::Relaxed, Ordering::Relaxed)
-            {
+            match self.peak.compare_exchange(
+                observed,
+                peak_bits,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
                 Ok(_) => return,
                 Err(actual) => observed = actual, // someone raised the bar; re-check
             }
@@ -252,7 +254,10 @@ impl OutputSetup {
             .map_err(|error| AudioError::NoConfig(format!("{error}")))?;
         let ranges: Vec<_> = device
             .supported_output_configs()
-            .map(|iter| iter.filter(|range| range.sample_format() == SampleFormat::F32).collect())
+            .map(|iter| {
+                iter.filter(|range| range.sample_format() == SampleFormat::F32)
+                    .collect()
+            })
             .unwrap_or_default();
         if ranges.is_empty() {
             return Err(AudioError::NoConfig(
@@ -267,11 +272,7 @@ impl OutputSetup {
             ranges
                 .iter()
                 .find_map(|range| range.try_with_sample_rate(default_rate))
-                .or_else(|| {
-                    ranges
-                        .first()
-                        .map(|range| (*range).with_max_sample_rate())
-                })
+                .or_else(|| ranges.first().map(|range| (*range).with_max_sample_rate()))
                 .unwrap_or(default_config)
         };
 
@@ -326,12 +327,7 @@ impl OutputSetup {
 
         let stream = self
             .device
-            .build_output_stream::<f32, _, _>(
-                self.config,
-                data_callback,
-                fail_callback_fn,
-                None,
-            )
+            .build_output_stream::<f32, _, _>(self.config, data_callback, fail_callback_fn, None)
             .map_err(|error| AudioError::Stream(format!("{error}")))?;
         stream
             .play()
@@ -397,27 +393,24 @@ pub fn bind_midi_input(
     if ports.is_empty() {
         return Err(MidiError::NoInput("no midi ports exist".into()));
     }
-    let picked: Option<&MidiInputPort> = if name_fragment.is_empty()
-        || name_fragment.eq_ignore_ascii_case("default")
-    {
-        Some(&ports[0])
-    } else {
-        ports
-            .iter()
-            .find(|port| {
-                input
-                    .port_name(port)
-                    .map(|full| full.contains(name_fragment))
-                    .unwrap_or(false)
-            })
-            .or(Some(&ports[0]))
-    };
+    let picked: Option<&MidiInputPort> =
+        if name_fragment.is_empty() || name_fragment.eq_ignore_ascii_case("default") {
+            Some(&ports[0])
+        } else {
+            ports
+                .iter()
+                .find(|port| {
+                    input
+                        .port_name(port)
+                        .map(|full| full.contains(name_fragment))
+                        .unwrap_or(false)
+                })
+                .or(Some(&ports[0]))
+        };
     let Some(port) = picked else {
         return Err(MidiError::NoInput(name_fragment.to_string()));
     };
-    let port_name = input
-        .port_name(port)
-        .unwrap_or_else(|_| "unknown".into());
+    let port_name = input.port_name(port).unwrap_or_else(|_| "unknown".into());
     let connection = input
         .connect(
             port,
@@ -560,12 +553,9 @@ mod tests {
         let dir = std::env::temp_dir().join("dg-audio-io").join("ring-glue");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let kit_path = dg_kit::kitgen::generate_test_kit(
-            &dir,
-            44100,
-            dg_kit::kitgen::TestKitFlavour::Small,
-        )
-        .unwrap();
+        let kit_path =
+            dg_kit::kitgen::generate_test_kit(&dir, 44100, dg_kit::kitgen::TestKitFlavour::Small)
+                .unwrap();
         let mut loader = dg_kit::KitLoader::start(kit_path.to_str().unwrap(), 44100);
         let kit = loop {
             match loader.poll() {
@@ -586,7 +576,9 @@ mod tests {
             producer.push(dg_common::RtCommand::Midi(event)).unwrap();
         }
         producer
-            .push(dg_common::RtCommand::Midi(decode_midi_bytes(&[0xA0, 36, 70]).remove(0)))
+            .push(dg_common::RtCommand::Midi(
+                decode_midi_bytes(&[0xA0, 36, 70]).remove(0),
+            ))
             .unwrap();
 
         let mut left = vec![0.0f32; 512];
@@ -596,4 +588,3 @@ mod tests {
         assert!(peak > 1e-3, "kick sounded through the ring: {peak}");
     }
 }
-

@@ -88,13 +88,8 @@ impl PluginCore {
             self.push_command(RtCommand::LoadKit { path });
         }
         if !self.state.voice_gains.is_empty() {
-            let gains: Vec<(usize, f32)> = self
-                .state
-                .voice_gains
-                .iter()
-                .copied()
-                .enumerate()
-                .collect();
+            let gains: Vec<(usize, f32)> =
+                self.state.voice_gains.iter().copied().enumerate().collect();
             for (instrument, gain) in gains {
                 self.push_command(RtCommand::VoiceGain { instrument, gain });
             }
@@ -136,7 +131,10 @@ impl PluginCore {
     /// Per-instrument gain (id from the kit order) or -1 for all.
     pub fn voice_gain(&mut self, instrument: i32, gain: f32) {
         if instrument == -1 {
-            self.state.voice_gains.iter_mut().for_each(|slot| *slot = gain);
+            self.state
+                .voice_gains
+                .iter_mut()
+                .for_each(|slot| *slot = gain);
         } else if let Some(slot) = self.state.voice_gains.get_mut(instrument as usize) {
             *slot = gain;
         }
@@ -192,7 +190,13 @@ impl PluginCore {
     }
 
     /// Direct raw MIDI shortcut for wrappers that decode bytes per event.
-    pub fn midi_event(&mut self, kind: MessageType, note: u8, velocity: f32, offset: usize) -> MidiEvent {
+    pub fn midi_event(
+        &mut self,
+        kind: MessageType,
+        note: u8,
+        velocity: f32,
+        offset: usize,
+    ) -> MidiEvent {
         MidiEvent {
             kind,
             note,
@@ -271,11 +275,12 @@ mod tests {
     #[test]
     fn state_set_forwards_without_engine_swap() {
         let mut core = PluginCore::new();
-        let mut state = PluginState::default();
-        state.master_gain = 0.75;
-        state.tempo = 140.0;
+        let state = PluginState {
+            master_gain: 0.75,
+            tempo: 140.0,
+            ..PluginState::default()
+        };
         core.set_state(state.clone());
         assert_eq!(core.state(), state);
     }
 }
-

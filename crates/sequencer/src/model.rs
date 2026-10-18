@@ -114,7 +114,11 @@ impl Default for Step {
 impl Step {
     /// Convenience constructor for an enabled hit.
     pub fn hit(velocity: f32) -> Self {
-        Self { enabled: true, velocity, ..Self::default() }
+        Self {
+            enabled: true,
+            velocity,
+            ..Self::default()
+        }
     }
 
     /// Normalized (`0.05..=1.0`) velocity of the plain step.
@@ -137,7 +141,10 @@ pub struct Repeat {
 
 impl Default for Repeat {
     fn default() -> Self {
-        Self { count: 2, falloff: 0.75 }
+        Self {
+            count: 2,
+            falloff: 0.75,
+        }
     }
 }
 

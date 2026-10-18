@@ -26,7 +26,10 @@ use std::ffi::{c_char, c_void};
 use std::ptr;
 use std::slice;
 
-use vst3::{uid, Class, ComRef, ComWrapper, Steinberg::Vst::Event_::EventTypes_, Steinberg::Vst::*, Steinberg::*};
+use vst3::{
+    uid, Class, ComRef, ComWrapper, Steinberg::Vst::Event_::EventTypes_, Steinberg::Vst::*,
+    Steinberg::*,
+};
 
 use dg_plugin::{PluginCore, PluginState};
 
@@ -101,7 +104,9 @@ fn plain_to_normalized(id: u32, plain: f64) -> f64 {
 /// Normalized → plain parameter value.
 fn normalized_to_plain(id: u32, normalized: f64) -> f64 {
     match id {
-        PARAM_GAIN => normalized.clamp(0.0, 1.0) * (GAIN_PLAIN_MAX - GAIN_PLAIN_MIN) + GAIN_PLAIN_MIN,
+        PARAM_GAIN => {
+            normalized.clamp(0.0, 1.0) * (GAIN_PLAIN_MAX - GAIN_PLAIN_MIN) + GAIN_PLAIN_MIN
+        }
         PARAM_TEMPO => {
             normalized.clamp(0.0, 1.0) * (TEMPO_PLAIN_MAX - TEMPO_PLAIN_MIN) + TEMPO_PLAIN_MIN
         }
@@ -363,7 +368,8 @@ impl IAudioProcessorTrait for DrumProcessor {
         if let Some(param_changes) = ComRef::from_raw(data.inputParameterChanges) {
             let param_count = param_changes.getParameterCount();
             for param_index in 0..param_count {
-                let Some(param_queue) = ComRef::from_raw(param_changes.getParameterData(param_index))
+                let Some(param_queue) =
+                    ComRef::from_raw(param_changes.getParameterData(param_index))
                 else {
                     continue;
                 };
@@ -410,9 +416,7 @@ impl IAudioProcessorTrait for DrumProcessor {
                             events.push(dg_common::MidiEvent {
                                 kind: dg_common::MessageType::OnSet,
                                 note: on.pitch as u8,
-                                velocity: dg_plugin::velocity_to_byte(
-                                    on.velocity.clamp(0.0, 1.0),
-                                ),
+                                velocity: dg_plugin::velocity_to_byte(on.velocity.clamp(0.0, 1.0)),
                                 offset,
                             });
                         }
@@ -666,7 +670,12 @@ unsafe fn read_stream_all(stream: *mut IBStream) -> Option<Vec<u8>> {
     let mut chunk = [0u8; 4096];
     loop {
         let mut num_read: i32 = 0;
-        let result = vtbl_read(raw, chunk.as_mut_ptr().cast(), chunk.len() as i32, &mut num_read);
+        let result = vtbl_read(
+            raw,
+            chunk.as_mut_ptr().cast(),
+            chunk.len() as i32,
+            &mut num_read,
+        );
         if result != kResultOk && result != kResultTrue {
             return None;
         }
@@ -694,7 +703,12 @@ unsafe fn write_stream_all(stream: *mut IBStream, bytes: &[u8]) -> bool {
         let chunk = &bytes[offset..];
         let chunk_len = chunk.len().min(i32::MAX as usize) as i32;
         let mut written: i32 = 0;
-        let result = vtbl_write(raw, chunk.as_ptr().cast::<u8>() as *mut c_void, chunk_len, &mut written);
+        let result = vtbl_write(
+            raw,
+            chunk.as_ptr().cast::<u8>() as *mut c_void,
+            chunk_len,
+            &mut written,
+        );
         if result != kResultOk && result != kResultTrue {
             return false;
         }
@@ -854,9 +868,11 @@ mod tests {
 
     #[test]
     fn state_roundtrip_through_json() {
-        let mut state = PluginState::default();
-        state.master_gain = 2.5;
-        state.tempo = 98.0;
+        let state = PluginState {
+            master_gain: 2.5,
+            tempo: 98.0,
+            ..PluginState::default()
+        };
         let bytes = state.to_json();
         let back = PluginState::from_json(&bytes).expect("parse");
         assert_eq!(back, state);

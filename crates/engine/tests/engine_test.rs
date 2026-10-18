@@ -2,7 +2,7 @@
 //! Engine integration tests against the generated test kit (no sound
 //! card required): decode → map → note-on → mix.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use dg_common::{MidiEvent, RtCommand};
@@ -18,11 +18,11 @@ fn unique_dir(name: &str) -> PathBuf {
     dir
 }
 
-fn load_test_kit(dir: &PathBuf) -> Arc<LoadedKit> {
+fn load_test_kit(dir: &Path) -> Arc<LoadedKit> {
     load_test_kit_flavour(dir, TestKitFlavour::Small)
 }
 
-fn load_test_kit_flavour(dir: &PathBuf, flavour: TestKitFlavour) -> Arc<LoadedKit> {
+fn load_test_kit_flavour(dir: &Path, flavour: TestKitFlavour) -> Arc<LoadedKit> {
     let path = generate_test_kit(dir, 44100, flavour).expect("generate kit");
     let mut loader = KitLoader::start(path.to_str().unwrap(), 44100);
     loop {
@@ -46,12 +46,16 @@ impl TestEngine {
     fn new(name: &str) -> Self {
         let dir = unique_dir(name);
         let kit = load_test_kit(&dir);
-        let (engine, mut producer) = engine_pair(44100, 128);
+        let (engine, producer) = engine_pair(44100, 128);
         let mut engine = engine;
         let midimap_path = kit.basepath.join("midimap.xml");
         let midimap = dg_kit::parser::parse_midimap_file(&midimap_path).unwrap_or_default();
         engine.set_kit(kit, Some(&midimap));
-        Self { engine, producer, dir }
+        Self {
+            engine,
+            producer,
+            dir,
+        }
     }
 
     fn energy(&mut self, blocks: usize) -> (f32, f32, usize) {
@@ -80,7 +84,10 @@ fn note_on_sounds() {
     engine.engine.push_midi(MidiEvent::note_on(36, 110.0, 0));
     let (peak_l, peak_r, events) = engine.energy(4);
     assert_eq!(events, 1, "one midi event consumed");
-    assert!(peak_l > 1e-3 && peak_r > 1e-3, "sends audio: {peak_l} {peak_r}");
+    assert!(
+        peak_l > 1e-3 && peak_r > 1e-3,
+        "sends audio: {peak_l} {peak_r}"
+    );
 }
 
 #[test]
@@ -90,7 +97,9 @@ fn louder_velocity_is_louder() {
     let soft = sum_abs(&mut soft_engine.engine, 8);
 
     let mut hard_engine = TestEngine::new("hard");
-    hard_engine.engine.push_midi(MidiEvent::note_on(36, 120.0, 0));
+    hard_engine
+        .engine
+        .push_midi(MidiEvent::note_on(36, 120.0, 0));
     let hard = sum_abs(&mut hard_engine.engine, 8);
 
     assert!(hard > soft * 1.5, "soft {soft} vs hard {hard}");
@@ -134,7 +143,9 @@ fn choke_group_ramps_hihat_pair() {
     let mut right = vec![0.0f32; 256];
     let mut envelope = Vec::new();
     for _ in 0..4 {
-        engine.engine.render_block(&mut [&mut left, &mut right], &[]);
+        engine
+            .engine
+            .render_block(&mut [&mut left, &mut right], &[]);
         envelope.push(left.iter().map(|s| s.abs()).sum::<f32>());
     }
     assert!(
@@ -150,7 +161,9 @@ fn panic_fades_everything() {
     engine.engine.push_midi(MidiEvent::note_on(36, 100.0, 0));
     let mut left = vec![0.0f32; 256];
     let mut right = vec![0.0f32; 256];
-    engine.engine.render_block(&mut [&mut left, &mut right], &[]);
+    engine
+        .engine
+        .render_block(&mut [&mut left, &mut right], &[]);
     let before: f32 = left.iter().map(|s| s.abs()).sum();
     assert!(before > 0.0, "voice sounds before the panic");
 
@@ -160,7 +173,9 @@ fn panic_fades_everything() {
     let mut left = vec![0.0f32; 512];
     let mut right = vec![0.0f32; 512];
     for _ in 0..2 {
-        engine.engine.render_block(&mut [&mut left, &mut right], &[]);
+        engine
+            .engine
+            .render_block(&mut [&mut left, &mut right], &[]);
     }
     let total: f32 = left.iter().sum();
     assert!(total.abs() < 1e-9, "panic should have faded: {total}");
@@ -171,10 +186,15 @@ fn panic_fades_everything() {
 fn master_gain_scales_output() {
     let mut engine = TestEngine::new("master");
     engine.engine.push_midi(MidiEvent::note_on(36, 100.0, 0));
-    engine.producer.push(RtCommand::MasterGain { gain: 0.5 }).unwrap();
+    engine
+        .producer
+        .push(RtCommand::MasterGain { gain: 0.5 })
+        .unwrap();
     let mut left = vec![0.0f32; 256];
     let mut right = vec![0.0f32; 256];
-    engine.engine.render_block(&mut [&mut left, &mut right], &[]);
+    engine
+        .engine
+        .render_block(&mut [&mut left, &mut right], &[]);
     assert!(sum(&left) > 0.0);
     // note: the command applies before the render, so compare halves
     let halved: f32 = left.iter().map(|s| s.abs()).sum::<f32>();
@@ -183,9 +203,14 @@ fn master_gain_scales_output() {
     engine.engine.push_midi(MidiEvent::note_on(36, 100.0, 0));
     let mut left = vec![0.0f32; 256];
     let mut right = vec![0.0f32; 256];
-    engine.engine.render_block(&mut [&mut left, &mut right], &[]);
+    engine
+        .engine
+        .render_block(&mut [&mut left, &mut right], &[]);
     let plain: f32 = left.iter().map(|s| s.abs()).sum::<f32>();
-    assert!((halved * 2.0 - plain).abs() / plain < 0.5, "{halved} vs {plain}");
+    assert!(
+        (halved * 2.0 - plain).abs() / plain < 0.5,
+        "{halved} vs {plain}"
+    );
 }
 
 #[test]
@@ -199,7 +224,10 @@ fn sequencer_runs_through_engine() {
     pattern.lanes.push(kick);
     let snapshot = SeqSnapshot {
         patterns: vec![pattern],
-        chain: vec![ChainEntry { pattern: 0, repeats: 1 }],
+        chain: vec![ChainEntry {
+            pattern: 0,
+            repeats: 1,
+        }],
         loop_chain: true,
     };
     let json = serde_json::to_string(&snapshot).unwrap();
@@ -214,7 +242,9 @@ fn sequencer_runs_through_engine() {
     let mut right = vec![0.0f32; 512];
     let mut sounding = 0;
     for _ in 0..24 {
-        engine.engine.render_block(&mut [&mut left, &mut right], &[]);
+        engine
+            .engine
+            .render_block(&mut [&mut left, &mut right], &[]);
         if left.iter().any(|s| s.abs() > 1e-6) {
             sounding += 1;
         }
@@ -265,14 +295,10 @@ struct StereoProbe {
 fn take_channels(kit: &Arc<LoadedKit>, midimap: &[dg_kit::MidimapEntry]) -> StereoProbe {
     let frames = 256usize;
     // One fresh engine for the per-channel render.
-    let (engine_a, producer) = engine_pair(44100, 128);
+    let (engine_a, _producer) = engine_pair(44100, 128);
     let mut per_channel = engine_a;
     per_channel.set_kit(kit.clone(), Some(midimap));
-    let mut channels: Vec<Vec<f32>> = kit
-        .channels
-        .iter()
-        .map(|_| vec![0.0f32; frames])
-        .collect();
+    let mut channels: Vec<Vec<f32>> = kit.channels.iter().map(|_| vec![0.0f32; frames]).collect();
     let mut views: Vec<&mut [f32]> = channels.iter_mut().map(|c| c.as_mut_slice()).collect();
     let midi = [MidiEvent::note_on(36, 110.0, 0)];
     per_channel.render_block(&mut views, &midi);
@@ -287,7 +313,12 @@ fn take_channels(kit: &Arc<LoadedKit>, midimap: &[dg_kit::MidimapEntry]) -> Ster
     let midi = [MidiEvent::note_on(36, 110.0, 0)];
     stereo.render_stereo(&mut left, &mut right, &midi);
     let _ = producer;
-    StereoProbe { channels, left, right, frames }
+    StereoProbe {
+        channels,
+        left,
+        right,
+        frames,
+    }
 }
 
 #[test]
@@ -300,10 +331,20 @@ fn render_stereo_pairs_fallback_channels() {
 
     // Without any main marking the fallback pair is the first two kit
     // channels (Kick In / Kick Out for this kit).
-    assert_eq!(&probe.left[..probe.frames], &probe.channels[0][..probe.frames]);
-    assert_eq!(&probe.right[..probe.frames], &probe.channels[1][..probe.frames]);
+    assert_eq!(
+        &probe.left[..probe.frames],
+        &probe.channels[0][..probe.frames]
+    );
+    assert_eq!(
+        &probe.right[..probe.frames],
+        &probe.channels[1][..probe.frames]
+    );
     assert!(
-        probe.channels.iter().skip(2).all(|c| c.iter().all(|s| *s == 0.0)),
+        probe
+            .channels
+            .iter()
+            .skip(2)
+            .all(|c| c.iter().all(|s| *s == 0.0)),
         "only the pair channels render in per-channel mode with one hit"
     );
 }

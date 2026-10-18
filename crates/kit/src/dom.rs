@@ -126,8 +126,7 @@ pub struct ClickMapDom {
 }
 
 /// Mirrors `MetadataDOM`.
-#[derive(Debug, Clone, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct MetadataDom {
     pub version: String,
     pub title: String,
@@ -146,7 +145,6 @@ pub struct MetadataDom {
     /// File name of the default `midimap.xml`.
     pub default_midimap_file: String,
 }
-
 
 /// Mirrors `DrumkitDOM`.
 #[derive(Debug, Clone, PartialEq)]

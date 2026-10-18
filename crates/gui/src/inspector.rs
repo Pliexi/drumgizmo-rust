@@ -26,9 +26,7 @@ pub fn show(app: &mut DrumApp, ui: &mut egui::Ui) {
 
     ui.horizontal(|ui| {
         ui.label("Lane:");
-        ui.add(
-            egui::Slider::new(&mut app.selected_lane, 0..=lane_count - 1).integer(),
-        );
+        ui.add(egui::Slider::new(&mut app.selected_lane, 0..=lane_count - 1).integer());
         if ui.button("◀ step").clicked() {
             app.selected_step = app.selected_step.saturating_sub(1);
         }
@@ -99,9 +97,8 @@ fn step_sliders(ui: &mut egui::Ui, step: &mut Step, _app: &mut DrumApp) {
     let velocity = ui.add(egui::Slider::new(&mut step.velocity, 0.05..=1.0).text("Velocity"));
     let probability =
         ui.add(egui::Slider::new(&mut step.probability, 0.03..=1.0).text("Probability"));
-    let micro = ui.add(
-        egui::Slider::new(&mut step.micro_offset, -0.45..=0.45).text("Micro offset (steps)"),
-    );
+    let micro = ui
+        .add(egui::Slider::new(&mut step.micro_offset, -0.45..=0.45).text("Micro offset (steps)"));
     if velocity.drag_stopped() || probability.drag_stopped() || micro.drag_stopped() {
         _app.set_status("Step edited (drag finished)");
     }
@@ -121,7 +118,11 @@ fn step_toggles(ui: &mut egui::Ui, step: &mut Step, app: &mut DrumApp) {
     ui.add_space(2.0);
     ui.horizontal(|ui| {
         if let Some(repeat) = step.repeat.as_mut() {
-            ui.add(egui::Slider::new(&mut repeat.count, 2..=8).integer().text("Ratchet"));
+            ui.add(
+                egui::Slider::new(&mut repeat.count, 2..=8)
+                    .integer()
+                    .text("Ratchet"),
+            );
             ui.add(egui::Slider::new(&mut repeat.falloff, 0.05..=0.95).text("Falloff"));
             if ui.button("Remove ratchet").clicked() {
                 app.snapshot_pattern();

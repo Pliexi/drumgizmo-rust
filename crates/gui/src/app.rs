@@ -38,7 +38,7 @@ enum UndoEntry {
 /// thread owns the consumer side and never locks it.
 pub struct DrumApp {
     pub(crate) producer: SharedProducer,
-pub(crate) mode: Mode,
+    pub(crate) mode: Mode,
     /// Status text that the bottom bar shows.
     status: String,
 
@@ -151,13 +151,17 @@ impl DrumApp {
             Ok(summary) => {
                 let directory = crate::summary::kit_directory(&kit_path)
                     .unwrap_or_else(|| summary.path.clone());
-                self.send(RtCommand::LoadKit { path: directory.clone() });
+                self.send(RtCommand::LoadKit {
+                    path: directory.clone(),
+                });
                 let lanes = summary.default_lanes(self.pattern.length);
                 self.snapshot_pattern();
                 self.pattern.lanes = lanes;
                 self.mark_pattern_dirty();
                 self.voice_gains = vec![1.0; summary.instrument_count];
-                self.selected_step = self.selected_step.min(self.pattern.length.saturating_sub(1));
+                self.selected_step = self
+                    .selected_step
+                    .min(self.pattern.length.saturating_sub(1));
                 self.kit_summary = Some(summary);
                 self.status = format!("Kit loaded: {path}");
             }
@@ -172,8 +176,7 @@ impl DrumApp {
     pub fn replace_pattern(&mut self, pattern: Pattern) {
         self.snapshot_pattern();
         self.pattern = pattern;
-        self.pattern
-            .ensure_lengths(self.pattern.length.max(16));
+        self.pattern.ensure_lengths(self.pattern.length.max(16));
         self.mark_pattern_dirty();
     }
 
@@ -202,7 +205,9 @@ impl DrumApp {
             let UndoEntry::Pattern(previous) = previous;
             self.redo.push(UndoEntry::Pattern(self.pattern.clone()));
             self.pattern = previous;
-            self.selected_step = self.selected_step.min(self.pattern.length.saturating_sub(1));
+            self.selected_step = self
+                .selected_step
+                .min(self.pattern.length.saturating_sub(1));
             self.pattern_dirty = true;
             self.status = "Undo".into();
         } else {
@@ -215,7 +220,9 @@ impl DrumApp {
             let UndoEntry::Pattern(next) = next;
             self.undo.push(UndoEntry::Pattern(self.pattern.clone()));
             self.pattern = next;
-            self.selected_step = self.selected_step.min(self.pattern.length.saturating_sub(1));
+            self.selected_step = self
+                .selected_step
+                .min(self.pattern.length.saturating_sub(1));
             self.pattern_dirty = true;
             self.status = "Redo".into();
         } else {
@@ -259,9 +266,12 @@ impl DrumApp {
     /// Keeps the selected step inside the pattern length (long used
     /// after length changes).
     pub(crate) fn snap_selection_to_pattern(&mut self) {
-        self.selected_step = self.selected_step.min(self.pattern.length.saturating_sub(1));
-        self.selected_lane =
-            self.selected_lane.min(self.pattern.lanes.len().saturating_sub(1));
+        self.selected_step = self
+            .selected_step
+            .min(self.pattern.length.saturating_sub(1));
+        self.selected_lane = self
+            .selected_lane
+            .min(self.pattern.lanes.len().saturating_sub(1));
     }
 
     /// Applies a mutation to one lane step (inspector path).
@@ -395,11 +405,12 @@ impl eframe::App for DrumApp {
                     self.status = "Panic: all voices faded".into();
                 }
                 ui.separator();
-                let master = ui.add(
-                    egui::Slider::new(&mut self.master_gain, 0.0..=2.0).text("Master"),
-                );
+                let master =
+                    ui.add(egui::Slider::new(&mut self.master_gain, 0.0..=2.0).text("Master"));
                 if master.changed() {
-                    self.send(RtCommand::MasterGain { gain: self.master_gain });
+                    self.send(RtCommand::MasterGain {
+                        gain: self.master_gain,
+                    });
                 }
                 ui.separator();
                 ui.weak(&self.status);

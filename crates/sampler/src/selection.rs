@@ -51,7 +51,12 @@ impl SampleSelection {
 
         let last = vec![0; powers.len()];
         Self {
-            powerlist: PowerList { powers, sample_indices, min_power, max_power },
+            powerlist: PowerList {
+                powers,
+                sample_indices,
+                min_power,
+                max_power,
+            },
             last,
         }
     }
@@ -102,7 +107,11 @@ impl SampleSelection {
         } else {
             down_index = up_start;
             let idx = down_index - 1;
-            if up_index != 0 { f_close * pow2((powers[idx] - level) / power_range) } else { f32::MAX }
+            if up_index != 0 {
+                f_close * pow2((powers[idx] - level) / power_range)
+            } else {
+                f32::MAX
+            }
         };
 
         let mut index_opt = 0usize;
@@ -174,13 +183,20 @@ pub struct VelocityRangeTable {
 impl VelocityRangeTable {
     /// Builds from a loaded instrument's resolved velocity groups.
     pub fn new(instrument: &LoadedInstrument) -> Self {
-        let mut ranges: Vec<GroupedRange> =
-            instrument.velocity_groups.iter().map(|v| GroupedRange {
+        let mut ranges: Vec<GroupedRange> = instrument
+            .velocity_groups
+            .iter()
+            .map(|v| GroupedRange {
                 lower: v.lower,
                 upper: v.upper,
                 samples: v.samples.clone(),
-            }).collect();
-        ranges.sort_by(|a, b| a.lower.partial_cmp(&b.lower).unwrap_or(std::cmp::Ordering::Equal));
+            })
+            .collect();
+        ranges.sort_by(|a, b| {
+            a.lower
+                .partial_cmp(&b.lower)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         Self { ranges }
     }
 
@@ -301,11 +317,22 @@ mod tests {
             id: 0,
             name: "Kick".into(),
             samples: (0..6)
-                .map(|i| LoadedSample { name: format!("s{i}"), ..Default::default() })
+                .map(|i| LoadedSample {
+                    name: format!("s{i}"),
+                    ..Default::default()
+                })
                 .collect(),
             velocity_groups: vec![
-                VelocityGroup { lower: 0.0, upper: 0.6, samples: vec![0, 1, 2] },
-                VelocityGroup { lower: 0.6, upper: 1.0, samples: vec![3, 4, 5] },
+                VelocityGroup {
+                    lower: 0.0,
+                    upper: 0.6,
+                    samples: vec![0, 1, 2],
+                },
+                VelocityGroup {
+                    lower: 0.6,
+                    upper: 1.0,
+                    samples: vec![3, 4, 5],
+                },
             ],
             ..Default::default()
         }

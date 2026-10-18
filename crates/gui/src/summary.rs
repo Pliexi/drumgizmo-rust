@@ -45,8 +45,7 @@ impl KitSummary {
         let dom: DrumkitDom = parse_drumkit_file(&xml_file).map_err(|e| e.to_string())?;
 
         let midi_path = dir.join("midimap.xml");
-        let midi_entries: Vec<MidimapEntry> =
-            parse_midimap_file(&midi_path).unwrap_or_default();
+        let midi_entries: Vec<MidimapEntry> = parse_midimap_file(&midi_path).unwrap_or_default();
         let mut note_by_name: Vec<(&String, u8)> = Vec::new();
         for entry in &midi_entries {
             note_by_name.push((&entry.instrument, entry.note));
@@ -137,8 +136,7 @@ pub fn kit_directory(path: &Path) -> Option<String> {
     if path.is_dir() {
         Some(path.display().to_string())
     } else if path.is_file() {
-        path.parent()
-            .map(|parent| parent.display().to_string())
+        path.parent().map(|parent| parent.display().to_string())
     } else {
         None
     }
@@ -150,17 +148,12 @@ mod tests {
 
     #[test]
     fn generated_kit_summary_has_midimap_bindings() {
-        let dir = std::env::temp_dir()
-            .join("dg-gui-tests")
-            .join("summary");
+        let dir = std::env::temp_dir().join("dg-gui-tests").join("summary");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let kit_path = dg_kit::kitgen::generate_test_kit(
-            &dir,
-            44100,
-            dg_kit::kitgen::TestKitFlavour::Small,
-        )
-        .unwrap();
+        let kit_path =
+            dg_kit::kitgen::generate_test_kit(&dir, 44100, dg_kit::kitgen::TestKitFlavour::Small)
+                .unwrap();
 
         let summary = KitSummary::load_from(&kit_path).unwrap();
         assert_eq!(summary.name, "Rust Test Kit");
@@ -191,17 +184,12 @@ mod tests {
 
     #[test]
     fn drumkit_xml_file_argument_resolves_to_dir() {
-        let dir = std::env::temp_dir()
-            .join("dg-gui-tests")
-            .join("xml-arg");
+        let dir = std::env::temp_dir().join("dg-gui-tests").join("xml-arg");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let xml = dg_kit::kitgen::generate_test_kit(
-            &dir,
-            44100,
-            dg_kit::kitgen::TestKitFlavour::Small,
-        )
-        .unwrap();
+        let xml =
+            dg_kit::kitgen::generate_test_kit(&dir, 44100, dg_kit::kitgen::TestKitFlavour::Small)
+                .unwrap();
         assert!(kit_directory(&xml).is_some());
     }
 }

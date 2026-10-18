@@ -104,7 +104,7 @@ mod tests {
         let mut r = Rand::new(7);
         for _ in 0..1000 {
             let f = r.next_f32();
-            assert!(f >= 0.0 && f < 1.0);
+            assert!((0.0..1.0).contains(&f));
             assert!(r.float_in_range(10.0, 20.0) >= 10.0);
             assert!(r.float_in_range(10.0, 20.0) < 20.0);
         }

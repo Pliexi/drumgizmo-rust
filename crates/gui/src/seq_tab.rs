@@ -121,7 +121,8 @@ fn transport_row(app: &mut DrumApp, ui: &mut Ui) {
             ui.add(egui::Slider::new(&mut app.pattern.accent_gain, 0.5..=3.0).text("Accent gain"));
         let ghost =
             ui.add(egui::Slider::new(&mut app.pattern.ghost_gain, 0.0..=1.5).text("Ghost gain"));
-        let flam_time = ui.add(egui::Slider::new(&mut app.pattern.flam_time, 0.0..=0.4).text("Flam Δ"));
+        let flam_time =
+            ui.add(egui::Slider::new(&mut app.pattern.flam_time, 0.0..=0.4).text("Flam Δ"));
         let flam_velocity =
             ui.add(egui::Slider::new(&mut app.pattern.flam_velocity, 0.1..=1.2).text("Flam gain"));
         if accent.changed() || ghost.changed() || flam_time.changed() || flam_velocity.changed() {
@@ -227,10 +228,8 @@ fn bar_start_index(division: Division, step: usize) -> bool {
 fn draw_steps(app: &mut DrumApp, ui: &mut Ui, lane_index: usize) {
     let length = app.pattern.length;
     for step in 0..length {
-        let (rect, response) = ui.allocate_exact_size(
-            egui::vec2(CELL - 2.0, CELL_H),
-            Sense::click(),
-        );
+        let (rect, response) =
+            ui.allocate_exact_size(egui::vec2(CELL - 2.0, CELL_H), Sense::click());
         if response.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }
@@ -410,9 +409,7 @@ fn midi_io_row(app: &mut DrumApp, ui: &mut Ui) {
                                 file.notes.len()
                             ));
                         }
-                        Err(error) => {
-                            app.set_status(format!("MIDI import failed: {error:?}"))
-                        }
+                        Err(error) => app.set_status(format!("MIDI import failed: {error:?}")),
                     },
                     Err(error) => app.set_status(format!("MIDI read failed: {error}")),
                 }

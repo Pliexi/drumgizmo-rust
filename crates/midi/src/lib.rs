@@ -127,7 +127,11 @@ pub fn parse_smf(bytes: &[u8]) -> Result<MidiFile, MidiError> {
     tempos.sort_by_key(|(t, _)| *t);
     tempos.dedup_by_key(|(t, _)| *t);
 
-    Ok(MidiFile { ticks_per_beat, notes, tempos })
+    Ok(MidiFile {
+        ticks_per_beat,
+        notes,
+        tempos,
+    })
 }
 
 /// Tick resolution of the SMF export (quarter note).
@@ -148,7 +152,11 @@ pub struct ExportNote {
 
 /// Writes the notes as a GM-drum type 0 SMF file (all on channel 10);
 /// velocities are 7-bit; fractional ticks are rounded.
-pub fn write_smf(notes: &[ExportNote], ticks_per_beat: u16, tempo_bpm: f64) -> Result<Vec<u8>, MidiError> {
+pub fn write_smf(
+    notes: &[ExportNote],
+    ticks_per_beat: u16,
+    tempo_bpm: f64,
+) -> Result<Vec<u8>, MidiError> {
     if notes.iter().any(|n| n.tick < 0.0) {
         return Err(MidiError("negative tick".into()));
     }
@@ -198,7 +206,8 @@ pub fn write_smf(notes: &[ExportNote], ticks_per_beat: u16, tempo_bpm: f64) -> R
     smf.tracks = vec![head];
 
     let mut out = Vec::new();
-    smf.write_std(&mut out).map_err(|e| MidiError(e.to_string()))?;
+    smf.write_std(&mut out)
+        .map_err(|e| MidiError(e.to_string()))?;
     Ok(out)
 }
 
@@ -235,7 +244,11 @@ pub fn pattern_from_midi(
         let Some(instrument_id) = note_to_lane(note.note) else {
             continue;
         };
-        let lane_index = match pattern.lanes.iter().position(|l| l.instrument_id == instrument_id) {
+        let lane_index = match pattern
+            .lanes
+            .iter()
+            .position(|l| l.instrument_id == instrument_id)
+        {
             Some(index) => index,
             None => {
                 let lane = Lane::new(instrument_id, note.note, length);
@@ -254,7 +267,11 @@ pub fn pattern_from_midi(
 
         let lane = &mut pattern.lanes[lane_index];
         if note.choke {
-            lane.steps[step] = Step { enabled: true, choke: true, ..Step::default() };
+            lane.steps[step] = Step {
+                enabled: true,
+                choke: true,
+                ..Step::default()
+            };
             continue;
         }
         let velocity = (note.velocity as f32 / 127.0).clamp(0.05, 1.0);
@@ -262,10 +279,9 @@ pub fn pattern_from_midi(
         // De-duplicate to the loudest hit of the step (ratchet/flam extras
         // quantize onto the same step; their data is not reconstructable).
         let existing = &mut lane.steps[step];
-        if existing.enabled && !existing.choke
-            && velocity <= existing.velocity {
-                continue;
-            }
+        if existing.enabled && !existing.choke && velocity <= existing.velocity {
+            continue;
+        }
         *existing = Step {
             enabled: true,
             velocity,
@@ -289,8 +305,7 @@ pub fn pattern_to_midi(pattern: &Pattern) -> Vec<ExportNote> {
         if lane.midi_note == 0 {
             continue; // unassigned notes cannot be exported
         }
-        let ticks_per_step =
-            MIDI_TICKS_PER_BEAT as f64 * pattern.division.beats_per_step();
+        let ticks_per_step = MIDI_TICKS_PER_BEAT as f64 * pattern.division.beats_per_step();
         for (step, step_def) in lane.steps.iter().enumerate() {
             if !step_def.enabled {
                 continue;
@@ -331,8 +346,7 @@ pub fn pattern_to_midi(pattern: &Pattern) -> Vec<ExportNote> {
                 for k in 1..count.max(1) as usize {
                     out.push(ExportNote {
                         note: lane.midi_note,
-                        velocity: (step_def.velocity * falloff.powi(k as i32))
-                            .clamp(0.01, 1.0),
+                        velocity: (step_def.velocity * falloff.powi(k as i32)).clamp(0.01, 1.0),
                         tick: hit_tick(k as f64 / count.max(1) as f64),
                         choke: false,
                     });
@@ -370,7 +384,10 @@ mod tests {
             ..Step::default()
         };
         let mut hat = Lane::new(2, 42, 16);
-        hat.steps[1] = Step { choke: true, ..Step::hit(0.8) };
+        hat.steps[1] = Step {
+            choke: true,
+            ..Step::hit(0.8)
+        };
         pattern.lanes = vec![kick, snare, hat];
         pattern
     }
@@ -430,12 +447,21 @@ mod tests {
 
     #[test]
     fn tempo_change_meta_is_parsed() {
-        let notes = vec![ExportNote { note: 36, velocity: 0.8, tick: 0.0, choke: false }];
+        let notes = vec![ExportNote {
+            note: 36,
+            velocity: 0.8,
+            tick: 0.0,
+            choke: false,
+        }];
         let bytes = write_smf(&notes, 480, 90.0).unwrap();
         let file = parse_smf(&bytes).unwrap();
         assert_eq!(file.ticks_per_beat, 480);
         // tempo quantizes to microseconds per beat on the wire
-        assert!((file.tempo_at(0) - 90.0).abs() < 1e-3, "{}", file.tempo_at(0));
+        assert!(
+            (file.tempo_at(0) - 90.0).abs() < 1e-3,
+            "{}",
+            file.tempo_at(0)
+        );
     }
 
     #[test]
@@ -445,7 +471,10 @@ mod tests {
         // step 1: step 0's grace would clamp to tick 0
         lane.steps[1] = Step {
             flam: true,
-            repeat: Some(Repeat { count: 3, falloff: 0.5 }),
+            repeat: Some(Repeat {
+                count: 3,
+                falloff: 0.5,
+            }),
             ..Step::hit(1.0)
         };
         pattern.lanes = vec![lane];

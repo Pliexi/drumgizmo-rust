@@ -9,7 +9,5 @@
 pub mod model;
 pub mod timing;
 
-pub use model::{
-    Articulation, ChainEntry, Division, Lane, Pattern, Repeat, Step,
-};
+pub use model::{Articulation, ChainEntry, Division, Lane, Pattern, Repeat, Step};
 pub use timing::{Sequencer, StepEvent, StepEventKind};

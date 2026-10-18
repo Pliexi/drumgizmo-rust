@@ -27,7 +27,10 @@ pub fn show(app: &mut DrumApp, ui: &mut egui::Ui) {
         );
 
         if let Some(error) = app.kit_error.clone() {
-            ui.colored_label(egui::Color32::from_rgb(220, 90, 90), format!("Error: {error}"));
+            ui.colored_label(
+                egui::Color32::from_rgb(220, 90, 90),
+                format!("Error: {error}"),
+            );
         }
         ui.separator();
         ui.add_space(6.0);
@@ -37,9 +40,7 @@ pub fn show(app: &mut DrumApp, ui: &mut egui::Ui) {
             ui.label(format!("Path: {}", summary.path));
             ui.label(format!(
                 "Instruments: {} · Channels: {} · Kit rate: {:?}",
-                summary.instrument_count,
-                summary.channel_count,
-                summary.samplerate,
+                summary.instrument_count, summary.channel_count, summary.samplerate,
             ));
             if !summary.instruments.is_empty() {
                 ui.add_space(12.0);
@@ -81,7 +82,10 @@ pub fn show(app: &mut DrumApp, ui: &mut egui::Ui) {
                                 }
                                 if slider.drag_stopped() || slider.lost_focus() {
                                     app.producer()
-                                        .push(RtCommand::VoiceGain { instrument: id, gain })
+                                        .push(RtCommand::VoiceGain {
+                                            instrument: id,
+                                            gain,
+                                        })
                                         .map_err(|_| ())
                                         .ok();
                                     app.set_status(format!("Gain({}) = {gain:.2}", inst.name));

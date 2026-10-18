@@ -18,9 +18,9 @@ use std::ptr;
 
 use clap_sys::entry::clap_plugin_entry;
 use clap_sys::events::{
-    clap_event_header, clap_event_midi, clap_event_note, clap_event_param_value, CLAP_CORE_EVENT_SPACE_ID,
-    CLAP_EVENT_MIDI, CLAP_EVENT_NOTE_CHOKE, CLAP_EVENT_NOTE_OFF, CLAP_EVENT_NOTE_ON,
-    CLAP_EVENT_PARAM_VALUE,
+    clap_event_header, clap_event_midi, clap_event_note, clap_event_param_value,
+    CLAP_CORE_EVENT_SPACE_ID, CLAP_EVENT_MIDI, CLAP_EVENT_NOTE_CHOKE, CLAP_EVENT_NOTE_OFF,
+    CLAP_EVENT_NOTE_ON, CLAP_EVENT_PARAM_VALUE,
 };
 use clap_sys::ext::audio_ports::{
     clap_audio_port_info, clap_plugin_audio_ports, CLAP_AUDIO_PORT_IS_MAIN, CLAP_EXT_AUDIO_PORTS,
@@ -39,7 +39,8 @@ use clap_sys::host::clap_host;
 use clap_sys::id::{clap_id, CLAP_INVALID_ID};
 use clap_sys::plugin::{clap_plugin, clap_plugin_descriptor};
 use clap_sys::process::{
-    clap_process, clap_process_status, CLAP_PROCESS_CONTINUE, CLAP_PROCESS_ERROR, CLAP_PROCESS_SLEEP,
+    clap_process, clap_process_status, CLAP_PROCESS_CONTINUE, CLAP_PROCESS_ERROR,
+    CLAP_PROCESS_SLEEP,
 };
 use clap_sys::stream::{clap_istream, clap_ostream};
 use clap_sys::version::CLAP_VERSION;
@@ -440,10 +441,7 @@ static STATE_EXT: clap_plugin_state = clap_plugin_state {
     load: Some(state_load),
 };
 
-unsafe extern "C" fn state_save(
-    plugin: *const clap_plugin,
-    stream: *const clap_ostream,
-) -> bool {
+unsafe extern "C" fn state_save(plugin: *const clap_plugin, stream: *const clap_ostream) -> bool {
     let Some(instance) = instance_of(plugin) else {
         return false;
     };
@@ -451,10 +449,7 @@ unsafe extern "C" fn state_save(
     write_all(stream, &bytes)
 }
 
-unsafe extern "C" fn state_load(
-    plugin: *const clap_plugin,
-    stream: *const clap_istream,
-) -> bool {
+unsafe extern "C" fn state_load(plugin: *const clap_plugin, stream: *const clap_istream) -> bool {
     let Some(instance) = instance_of(plugin) else {
         return false;
     };
@@ -515,7 +510,11 @@ static NOTE_PORTS_EXT: clap_plugin_note_ports = clap_plugin_note_ports {
 };
 
 unsafe extern "C" fn note_ports_count(_plugin: *const clap_plugin, is_input: bool) -> u32 {
-    if is_input { 1 } else { 0 }
+    if is_input {
+        1
+    } else {
+        0
+    }
 }
 
 unsafe extern "C" fn note_port_get(
@@ -542,7 +541,11 @@ static AUDIO_PORTS_EXT: clap_plugin_audio_ports = clap_plugin_audio_ports {
 };
 
 unsafe extern "C" fn audio_ports_count(_plugin: *const clap_plugin, is_input: bool) -> u32 {
-    if is_input { 0 } else { 1 }
+    if is_input {
+        0
+    } else {
+        1
+    }
 }
 
 unsafe extern "C" fn audio_port_get(
@@ -677,7 +680,7 @@ mod tests {
 
     #[test]
     fn copy_cstr_truncates_and_null_terminates() {
-        let mut short = [0 as c_char; CLAP_NAME_SIZE as usize];
+        let mut short = [0 as c_char; CLAP_NAME_SIZE];
         copy_cstr(&mut short, b"Main\0");
         assert_eq!(short[4], 0);
         assert_eq!(short[5], 0); // zeroed tail

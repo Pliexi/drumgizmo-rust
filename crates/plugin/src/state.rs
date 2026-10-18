@@ -68,16 +68,19 @@ mod tests {
 
     #[test]
     fn state_json_roundtrip_full() {
-        let mut state = PluginState::default();
-        state.kit_path = "/kits/test".into();
-        state.master_gain = 1.25;
-        state.voice_gains = vec![1.0, 0.5, 2.0];
-        state.tempo = 96.5;
-        state.sequencer_running = true;
-        let mut pattern = Pattern::default();
-        pattern.length = 32;
-        pattern.swing = 0.4;
-        state.pattern = Some(pattern);
+        let state = PluginState {
+            kit_path: "/kits/test".into(),
+            master_gain: 1.25,
+            voice_gains: vec![1.0, 0.5, 2.0],
+            tempo: 96.5,
+            sequencer_running: true,
+            pattern: Some(Pattern {
+                length: 32,
+                swing: 0.4,
+                ..Pattern::default()
+            }),
+            ..PluginState::default()
+        };
 
         let bytes = state.to_json();
         let restored = PluginState::from_json(&bytes).unwrap();
@@ -88,6 +91,6 @@ mod tests {
     fn broken_bytes_fail_cleanly() {
         assert!(PluginState::from_json(b"not json").is_none());
         assert!(PluginState::from_json(&[]).is_none());
-        assert_eq!(PluginState::default().to_json().len() > 2, true);
+        assert!(PluginState::default().to_json().len() > 2);
     }
 }
