@@ -1,5 +1,9 @@
 # Building, running and installing
 
+> **Just want to run it?** Skip this file and read
+> [docs/run_guide.md](run_guide.md) — prebuilt release binaries, distro
+> package recipes, DAW setup and troubleshooting live there.
+
 ## Requirements
 
 * Rust 1.74+ (2021 edition workspace) via rustup
