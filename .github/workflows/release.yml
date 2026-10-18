@@ -30,7 +30,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Release build + plugin staging
-        run: scripts/build.sh
+        run: bash scripts/build.sh
 
       - name: Bundle distributable
         run: |
