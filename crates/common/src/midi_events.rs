@@ -21,7 +21,10 @@ pub struct MidiEvent {
     pub kind: MessageType,
     /// MIDI note itself, 0..=127.
     pub note: u8,
-    /// Velocity, 0.0..=1.0.
+    /// Velocity in the 1..=127 MIDI byte scale as delivered by MIDI
+    /// sources (the realtime engine maps OnSet to (v - 0.5)/127 upstream
+    /// style and requires Choke velocity > 0 to trigger). Other crate
+    /// paths (sequencer steps) carry 0..=1 normalized values instead.
     pub velocity: f32,
     /// The offset of the event within the block that delivered it, in samples.
     pub offset: usize,

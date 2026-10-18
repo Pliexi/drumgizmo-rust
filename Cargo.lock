@@ -877,6 +877,7 @@ dependencies = [
  "cpal",
  "dg-common",
  "dg-engine",
+ "dg-kit",
  "dg-sequencer",
  "midir",
  "rtrb",
