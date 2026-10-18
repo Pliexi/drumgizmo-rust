@@ -52,8 +52,8 @@ jobs:
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
           echo "nfpm version: ${NFPM}"
           curl -sSL "https://github.com/goreleaser/nfpm/releases/download/${NFPM}/nfpm_${NFPM#v}_Linux_x86_64.tar.gz" \
-            | tar xz -C "${HOME}/.local/bin" nfpm
-          nfpm --version
+            | tar xz -C /tmp nfpm
+          /tmp/nfpm --version
 
       - name: Package deb / rpm / arch linux
         env:
@@ -62,9 +62,9 @@ jobs:
           VERSION=${VERSION#v}
           sed -i "s/^version: \"0\.[0-9.]*\"/version: \"${VERSION}\"/" packaging/nfpm.yaml
           mkdir -p dist
-          nfpm pkg -f packaging/nfpm.yaml -p deb -t "dist/drumgizmo-rust_${VERSION}_amd64.deb"
-          nfpm pkg -f packaging/nfpm.yaml -p rpm -t "dist/drumgizmo-rust-${VERSION}-x86_64.rpm"
-          nfpm pkg -f packaging/nfpm.yaml -p arch -t "dist/drumgizmo-rust-${VERSION}-x86_64.pkg.tar.zst"
+          /tmp/nfpm pkg -f packaging/nfpm.yaml -p deb -t "dist/drumgizmo-rust_${VERSION}_amd64.deb"
+          /tmp/nfpm pkg -f packaging/nfpm.yaml -p rpm -t "dist/drumgizmo-rust-${VERSION}-x86_64.rpm"
+          /tmp/nfpm pkg -f packaging/nfpm.yaml -p arch -t "dist/drumgizmo-rust-${VERSION}-x86_64.pkg.tar.zst"
 
       - name: Upload linux assets
         uses: actions/upload-artifact@v4
@@ -96,8 +96,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Windows cdylibs have no "lib" prefix (unlike Linux).
           mkdir -p drumgizmo-rust.vst3/Contents/x86_64-win
-          cp target/release/libdg_vst3_plugin.dll \
+          cp target/release/dg_vst3_plugin.dll \
              drumgizmo-rust.vst3/Contents/x86_64-win/drumgizmo-rust.vst3
           cp crates/vst3_plugin/drumgizmo-rust.vst3/Contents/moduleinfo.json \
              drumgizmo-rust.vst3/Contents/
@@ -106,8 +107,8 @@ jobs:
             crates/lv2_plugin/drumgizmo-rust.lv2/manifest.ttl > drumgizmo-rust.lv2/manifest.ttl
           sed 's/libdg_lv2_plugin\.so/libdg_lv2_plugin.dll/g' \
             crates/lv2_plugin/drumgizmo-rust.lv2/drumgizmo-rust.ttl > drumgizmo-rust.lv2/drumgizmo-rust.ttl
-          cp target/release/libdg_lv2_plugin.dll drumgizmo-rust.lv2/
-          cp target/release/libdg_clap_plugin.dll drumgizmo-rust.clap
+          cp target/release/dg_lv2_plugin.dll drumgizmo-rust.lv2/libdg_lv2_plugin.dll
+          cp target/release/dg_clap_plugin.dll drumgizmo-rust.clap
           mkdir -p release
           cp target/release/drumgizmo-rust.exe release/
           cp -r drumgizmo-rust.lv2 drumgizmo-rust.vst3 drumgizmo-rust.clap release/
