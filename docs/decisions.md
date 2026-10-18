@@ -73,16 +73,22 @@ assert rendered samples, and the audio_io glue test builds a kit via
 
 ## Blockers (honest)
 
-1. **GitHub push waits for a PAT.** `git push origin main` is ready
-   against `https://github.com/Pliexi/drumgizmo-rust`; it needs a
-   `github_pat_...` token with Contents: Read/Write from the owner.
-   All 16 feature/style commits exist locally (17 with the docs commit).
-2. **No plugin-host smoke test could run in this environment.**
-   `jalv`, `xvfb-run`, `clap-info` and `carla-discovery` are not
-   installed (`sudo pacman -S --needed jalv xorg-server-xvfb` is the
-   Arch command). The wrappers compile with unit tests against the
-   spec layouts, but a real host load (LV2 discovery, CLAP entry,
-   VST3 activation) has not been exercised end-to-end.
+1. ~~**GitHub push waits for a PAT.**~~ **RESOLVED.** PAT was provided;
+   `main` is pushed to `https://github.com/Pliexi/drumgizmo-rust`
+   (verified via `git ls-remote`: local HEAD == `refs/heads/main`).
+2. **Host smoke tests: LV2 and VST3 verified end-to-end, CLAP not.**
+   With `carla-discovery-native` 2.5.10 and `pw-jack jalv` (PipeWire
+   JACK shim, no sound card needed):
+   - LV2: discovered as synth (2 audio out, 1 midi in, 2 params) and
+     Instantiated through jalv for 15 s headless (`--version`-grade
+     smoke, no audio render).
+   - VST3: discovered with the same layout (works only when the module
+     inside `.vst3/Contents/<arch>-linux/` is named after the bundle
+     stem — `build.sh` now stages `drumgizmo-rust.so` for that reason).
+   - CLAP: carla 2.5.10 has no CLAP support at all
+     (`getPluginTypeFromString("clap")` = invalid) and `clap-info` is
+     not packaged for this machine, so the CLAP wrapper still has only
+     unit tests; a real host load of the `.clap` is not yet verified.
 3. **VST3 GUI missing.** `IEditController::createView` returns null;
    hosts will show controls but no custom editor (parameter automation
    still works).

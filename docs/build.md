@@ -24,7 +24,10 @@ Artifacts land in `target/staged/`:
 ```
 drumgizmo-rust              → standalone binary (target/release directly)
 drumgizmo-rust.lv2/         → LV2 bundle (TTL + libdg_lv2_plugin.so)
-drumgizmo-rust.vst3/        → VST3 bundle (moduleinfo.json + .so)
+drumgizmo-rust.vst3/        → VST3 bundle (moduleinfo.json +
+                              Contents/<arch>-linux/drumgizmo-rust.so;
+                              hosts require the module name to match the
+                              bundle stem)
 libdg_clap_plugin.so        → CLAP
 ```
 

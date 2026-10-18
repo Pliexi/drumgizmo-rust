@@ -57,7 +57,7 @@ scripts/test.sh
 * [docs/sequencer.md](docs/sequencer.md) — pattern model and timing
 * [docs/build.md](docs/build.md) — build/run/install contract
 * [docs/decisions.md](docs/decisions.md) — every design decision and the
-  current honest blockers (push token, host smoke tests, VST3 GUI)
+  current honest blockers (host smoke tests for CLAP, VST3 GUI)
 
 ## License
 
