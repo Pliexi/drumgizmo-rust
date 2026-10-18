@@ -338,8 +338,9 @@ unsafe fn events_in_block(
         }
         CLAP_EVENT_MIDI => {
             let midi = &*(header as *const clap_event_midi);
-            let raw = midi.data;
-            for event in decode_raw_midi(&raw) {
+            // The atom/MIDI byte payload shares the audio_io semantics;
+            // the helper lives in dg-common now.
+            for event in dg_common::decode_midi_status_bytes(&midi.data) {
                 let mut event = event;
                 event.offset = offset;
                 out.push(event);
@@ -357,32 +358,8 @@ unsafe fn events_in_block(
     }
 }
 
-/// Raw MIDI decoding without the cpal glue (same semantics as
-/// `dg_audio_io::decode_midi_bytes`): note on/off and polyphonic
-/// pressure for chokes; realtime and other statuses are ignored.
-fn decode_raw_midi(raw: &[u8]) -> Vec<DgEvent> {
-    let status = match raw.first() {
-        Some(&status) => status & 0xF0,
-        None => return Vec::new(),
-    };
-    let note = raw.get(1).copied().unwrap_or(0);
-    let data1 = raw.get(2).copied().unwrap_or(0);
-    let kind = match status {
-        0x90 => MessageType::OnSet,
-        0x80 => MessageType::NoteOff,
-        0xA0 if data1 > 0 => MessageType::Choke,
-        _ => return Vec::new(),
-    };
-    vec![DgEvent {
-        kind,
-        note,
-        velocity: match kind {
-            MessageType::NoteOff => 0.0,
-            _ => data1 as f32,
-        },
-        offset: 0,
-    }]
-}
+// Raw MIDI decoding is shared: see `dg_common::decode_midi_status_bytes`,
+// used directly in the CLAP_EVENT_MIDI branch above and in tests below.
 
 // ----------------------------------------------------------------------
 // params extension
@@ -674,25 +651,25 @@ mod tests {
 
     #[test]
     fn raw_midi_matches_audio_io_semantics() {
-        let on = decode_raw_midi(&[0x90, 36, 0x7F]);
+        let on = dg_common::decode_midi_status_bytes(&[0x90, 36, 0x7F]);
         assert_eq!(on.len(), 1);
         assert_eq!(on[0].kind, MessageType::OnSet);
         assert_eq!(on[0].note, 36);
         assert!((on[0].velocity - 127.0).abs() < f32::EPSILON);
 
-        let off = decode_raw_midi(&[0x80, 36, 0]);
+        let off = dg_common::decode_midi_status_bytes(&[0x80, 36, 0]);
         assert_eq!(off[0].kind, MessageType::NoteOff);
 
         // Polyphonic pressure doubles as choke when data1 > 0.
-        let choke = decode_raw_midi(&[0xA0, 40, 1]);
+        let choke = dg_common::decode_midi_status_bytes(&[0xA0, 40, 1]);
         assert_eq!(choke[0].kind, MessageType::Choke);
 
         // Realtime and other statuses are dropped. A truncated message
         // keeps the audio_io semantics: payload bytes default to zero.
-        assert!(decode_raw_midi(&[0xF8, 0, 0]).is_empty());
-        assert!(decode_raw_midi(&[0xB0, 64, 127]).is_empty());
-        assert!(decode_raw_midi(&[]).is_empty());
-        let truncated = decode_raw_midi(&[0x90]);
+        assert!(dg_common::decode_midi_status_bytes(&[0xF8, 0, 0]).is_empty());
+        assert!(dg_common::decode_midi_status_bytes(&[0xB0, 64, 127]).is_empty());
+        assert!(dg_common::decode_midi_status_bytes(&[]).is_empty());
+        let truncated = dg_common::decode_midi_status_bytes(&[0x90]);
         assert_eq!(truncated[0].kind, MessageType::OnSet);
         assert_eq!(truncated[0].note, 0);
         assert!((truncated[0].velocity).abs() < f32::EPSILON);
