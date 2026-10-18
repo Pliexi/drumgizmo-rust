@@ -53,6 +53,7 @@ scripts/test.sh
 
 ## Documentation
 
+* [docs/run_guide.md](docs/run_guide.md) — how to run on any machine: releases, distro builds, DAW setup
 * [docs/architecture.md](docs/architecture.md) — crate map and data flow
 * [docs/sequencer.md](docs/sequencer.md) — pattern model and timing
 * [docs/build.md](docs/build.md) — build/run/install contract

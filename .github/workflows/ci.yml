@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libasound2-dev \
+            libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            zip
+
+      - name: Stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (zero warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests (no sound card required)
+        run: scripts/test.sh
+
+      - name: Release build + plugin staging
+        run: scripts/build.sh
+
+      - name: Bundle distributable
+        run: |
+          mkdir -p upload
+          cp target/release/drumgizmo-rust upload/
+          cp -r target/staged/* upload/
+          cp README.md LICENSE upload/
+          zip -qr drumgizmo-rust-linux-x86_64.zip upload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drumgizmo-rust-linux-x86_64
+          path: drumgizmo-rust-linux-x86_64.zip
+          if-no-files-found: error

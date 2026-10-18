@@ -76,19 +76,22 @@ assert rendered samples, and the audio_io glue test builds a kit via
 1. ~~**GitHub push waits for a PAT.**~~ **RESOLVED.** PAT was provided;
    `main` is pushed to `https://github.com/Pliexi/drumgizmo-rust`
    (verified via `git ls-remote`: local HEAD == `refs/heads/main`).
-2. **Host smoke tests: LV2 and VST3 verified end-to-end, CLAP not.**
-   With `carla-discovery-native` 2.5.10 and `pw-jack jalv` (PipeWire
-   JACK shim, no sound card needed):
+2. **Host smoke tests: LV2, VST3 and CLAP verified.** With
+   `carla-discovery-native` 2.5.10, `pw-jack jalv` (PipeWire JACK
+   shim, no sound card needed) and the free-audio `clap-info`
+   validator (built from upstream source, 1.2.10):
    - LV2: discovered as synth (2 audio out, 1 midi in, 2 params) and
-     Instantiated through jalv for 15 s headless (`--version`-grade
-     smoke, no audio render).
+     instantiated through jalv for 15 s headless.
    - VST3: discovered with the same layout (works only when the module
      inside `.vst3/Contents/<arch>-linux/` is named after the bundle
      stem — `build.sh` now stages `drumgizmo-rust.so` for that reason).
-   - CLAP: carla 2.5.10 has no CLAP support at all
-     (`getPluginTypeFromString("clap")` = invalid) and `clap-info` is
-     not packaged for this machine, so the CLAP wrapper still has only
-     unit tests; a real host load of the `.clap` is not yet verified.
+   - CLAP: `clap-info` loads the binary, enumerates the descriptor
+     `com.pliexi.drumgizmo-rust` (features instrument/stereo), checks
+     audio-ports/note-ports/params and performs a state write/read
+     roundtrip — exit 0, empty stderr. What has *not* been run: an
+     audio-rendering session inside a DAW (needs carla 2.6+/reaper +
+     desktop), so "validated by the reference loader" is the honest
+     ceiling here.
 3. **VST3 GUI missing.** `IEditController::createView` returns null;
    hosts will show controls but no custom editor (parameter automation
    still works).

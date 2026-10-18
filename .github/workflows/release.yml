@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libasound2-dev \
+            libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            zip
+
+      - name: Stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Release build + plugin staging
+        run: scripts/build.sh
+
+      - name: Bundle distributable
+        run: |
+          mkdir -p release
+          cp target/release/drumgizmo-rust release/
+          cp -r target/staged/* release/
+          cp README.md LICENSE release/
+          cp docs/run_guide.md release/RUN_GUIDE.md
+          zip -qr "drumgizmo-rust-${{ github.ref_name }}-linux-x86_64.zip" release
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: drumgizmo-rust-*-linux-x86_64.zip
+          generate_release_notes: true
