@@ -64,7 +64,7 @@ jobs:
           mkdir -p dist
           /tmp/nfpm pkg -f packaging/nfpm.yaml -p deb -t "dist/drumgizmo-rust_${VERSION}_amd64.deb"
           /tmp/nfpm pkg -f packaging/nfpm.yaml -p rpm -t "dist/drumgizmo-rust-${VERSION}-x86_64.rpm"
-          /tmp/nfpm pkg -f packaging/nfpm.yaml -p arch -t "dist/drumgizmo-rust-${VERSION}-x86_64.pkg.tar.zst"
+          /tmp/nfpm pkg -f packaging/nfpm.yaml -p archlinux -t "dist/drumgizmo-rust-${VERSION}-x86_64.pkg.tar.zst"
 
       - name: Upload linux assets
         uses: actions/upload-artifact@v4
