@@ -76,7 +76,7 @@ assert rendered samples, and the audio_io glue test builds a kit via
 1. **GitHub push waits for a PAT.** `git push origin main` is ready
    against `https://github.com/Pliexi/drumgizmo-rust`; it needs a
    `github_pat_...` token with Contents: Read/Write from the owner.
-   All 15 commits exist locally.
+   All 16 feature/style commits exist locally (17 with the docs commit).
 2. **No plugin-host smoke test could run in this environment.**
    `jalv`, `xvfb-run`, `clap-info` and `carla-discovery` are not
    installed (`sudo pacman -S --needed jalv xorg-server-xvfb` is the
