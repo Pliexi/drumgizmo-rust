@@ -56,3 +56,19 @@ jobs:
           name: drumgizmo-rust-linux-x86_64
           path: drumgizmo-rust-linux-x86_64.zip
           if-no-files-found: error
+
+  windows:
+    # Windows keeps compiling green on MSVC; the binaries are shipped by
+    # the Release workflow (this job is the compile guard).
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check (MSVC toolchain)
+        run: cargo check --workspace --all-targets
+
+      - name: Clippy (zero warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings

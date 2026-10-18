@@ -213,7 +213,7 @@ impl IComponentTrait for DrumProcessor {
                     bus.channelCount = 2;
                     copy_wstring("Drums out", &mut bus.name);
                     bus.busType = BusTypes_::kMain as BusType;
-                    bus.flags = BusInfo_::BusFlags_::kDefaultActive;
+                    bus.flags = BusInfo_::BusFlags_::kDefaultActive as _;
                     kResultOk
                 } else {
                     kInvalidArgument
@@ -227,7 +227,7 @@ impl IComponentTrait for DrumProcessor {
                     bus.channelCount = 16;
                     copy_wstring("Drums in", &mut bus.name);
                     bus.busType = BusTypes_::kMain as BusType;
-                    bus.flags = BusInfo_::BusFlags_::kDefaultActive;
+                    bus.flags = BusInfo_::BusFlags_::kDefaultActive as _;
                     kResultOk
                 } else {
                     kInvalidArgument
@@ -343,6 +343,11 @@ impl IAudioProcessorTrait for DrumProcessor {
         kResultOk
     }
 
+    // The `vst3` crate exposes these enum constants as `i32` on Windows
+    // but as `u32` on Linux/BSD (and `bus.flags` mirrors that): casts
+    // normalize the comparisons for both targets, hence the targeted
+    // clippy allow on this fn.
+    #[allow(clippy::unnecessary_cast)]
     unsafe fn process(&self, data: *mut ProcessData) -> tresult {
         let data = &*data;
         if data.numOutputs != 1 || data.numSamples < 0 {
@@ -409,8 +414,8 @@ impl IAudioProcessorTrait for DrumProcessor {
                     continue;
                 }
                 let offset = event.sampleOffset.max(0) as usize;
-                match event.r#type as u32 {
-                    EventTypes_::kNoteOnEvent => {
+                match event.r#type {
+                    t if t as u32 == EventTypes_::kNoteOnEvent as u32 => {
                         let on = event.__field0.noteOn;
                         if (0..=127).contains(&on.pitch) {
                             events.push(dg_common::MidiEvent {
@@ -421,13 +426,13 @@ impl IAudioProcessorTrait for DrumProcessor {
                             });
                         }
                     }
-                    EventTypes_::kNoteOffEvent => {
+                    t2 if t2 as u32 == EventTypes_::kNoteOffEvent as u32 => {
                         let off = event.__field0.noteOff;
                         if (0..=127).contains(&off.pitch) {
                             events.push(dg_common::MidiEvent::note_off(off.pitch as u8, offset));
                         }
                     }
-                    EventTypes_::kPolyPressureEvent => {
+                    t3 if t3 as u32 == EventTypes_::kPolyPressureEvent as u32 => {
                         let pressure = event.__field0.polyPressure;
                         if (0..=127).contains(&pressure.pitch) && pressure.pressure > 0.0 {
                             events.push(dg_common::MidiEvent {

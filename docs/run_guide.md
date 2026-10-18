@@ -5,43 +5,46 @@ a DrumGizmo kit, play it from a keyboard, hear it through the speakers
 or drop it into a DAW as a plugin.
 
 Supported today: **Linux x86_64** (tested on Arch Linux with PipeWire;
-CI builds on Ubuntu 22.04). Windows/macOS are not tested — the Rust
+CI builds on Ubuntu 22.04) and **Windows x86_64** (CI builds with the
+MSVC toolchain; the standalone and all three plugin formats are
+compiled, but no Windows DAW session could be run in this project
+environment — see docs/decisions.md). macOS is not built yet; the Rust
 code itself is portable, but the plugin bundles and build scripts here
-do not handle them yet.
+do not handle it yet.
 
 ---
 
 ## 1. Fastest path: prebuilt binaries (GitHub Releases)
 
-If the **v0.1.0 release** is up, you need no Rust toolchain at all:
+Go to <https://github.com/Pliexi/drumgizmo-rust/releases>: every tag
+publishes, without any local toolchain:
 
-1. Go to <https://github.com/Pliexi/drumgizmo-rust/releases>
-   (private repo: your GitHub account must have access).
-2. Download `drumgizmo-rust-v0.1.0-linux-x86_64.zip`.
-3. Unzip and run:
+| Asset | What you get |
+| --- | --- |
+| `drumgizmo-rust-v0.1.1-linux-x86_64.zip` | standalone + LV2/VST3/CLAP bundles + README + RUN_GUIDE |
+| `drumgizmo-rust-v0.1.1-windows-x86_64.zip` | same for Windows (MSVC build) |
+| `drumgizmo-rust_0.1.1_amd64.deb` | Debian/Ubuntu/Mint system package (CLI into PATH, plugins into host search paths) |
+| `drumgizmo-rust-0.1.1-x86_64.rpm` | Fedora/RHEL/openSUSE package |
+| `drumgizmo-rust-0.1.1-x86_64.pkg.tar.zst` | Arch Linux pacman package (`sudo pacman -U …`) |
 
-   ```sh
-   unzip drumgizmo-rust-v0.1.0-linux-x86_64.zip
-   cd drumgizmo-rust-v0.1.0-linux-x86_64
-   ./drumgizmo-rust --help
-   ```
+Linux zip quick start:
 
-4. To install the plugins into DAW-known paths, from the unpacked
-   folder:
+```sh
+unzip drumgizmo-rust-v0.1.1-linux-x86_64.zip
+cd release   # the archive holds one folder with everything
+./drumgizmo-rust --help
+```
 
-   ```sh
-   mkdir -p ~/.lv2 ~/.vst3 ~/.clap ~/.local/bin
-   cp -r drumgizmo-rust.lv2 ~/.lv2/
-   cp -r drumgizmo-rust.vst3 ~/.vst3/
-   cp libdg_clap_plugin.so ~/.clap/drumgizmo-rust.clap
-   cp drumgizmo-rust ~/.local/bin/
-   ```
+Windows: unzip, start `drumgizmo-rust.exe`, and copy
+`drumgizmo-rust.lv2/`, `drumgizmo-rust.vst3/` and
+`drumgizmo-rust.clap` into your DAW%27s plugin folders (or
+`%COMMONPROGRAMFILES%/VST3`, `%COMMONPROGRAMFILES%/CLAP`...). The
+Windows plugin bundles carry `.dll` modules with the same stem-naming
+rule hosts expect.
 
-5. Rescan plugins in your DAW (or restart it).
-
-The binaries are built on Ubuntu 22.04 (glibc 2.35) so they run on any
-recent-enough distro. If your glibc is older, use the source path
-below — it takes about two minutes on a normal desktop.
+The packages for Debian/Fedora/Arch already install everything to the
+standard paths — install and just look up `drumgizmo-rust` in your DAW
+after a plugin rescan.
 
 ---
 
@@ -106,7 +109,25 @@ Useful flags:
 `scripts/run_standalone.sh` builds if needed and runs with
 `DG_PROFILE=${DG_PROFILE:-release}`.
 
-### 3.1 Audio output
+### 3.1 Loading a kit is easy now (v0.1.1)
+
+The Kit tab accepts any of these forms in the path field:
+- a kit **directory** (…/mugen/),
+- a **drumkit.xml file path**,
+- with `~/` expansion, trimmed quotes and stray slashes removed.
+
+Loading options, pick whichever feels natural:
+1. type/paste the path and press **Load Kit**;
+2. press **Paste** — reads the clipboard directly (arboard, works
+   through Wayland portals even where Ctrl+V fails in apps);
+3. expand **Browse directories** and click your way to the kit;
+4. **drag a kit.xml / kit folder from your file manager** onto the
+   window — instant load on drop.
+
+The global shortcuts (Space, 1–9, Ctrl+Z/Y) stay out of the way while
+you type in any text field.
+
+### 3.2 Audio output
 
 The app plays through the **default output device** (ALSA; with
 PipeWire/PulseAudio installed it appears as the default). If there is
@@ -114,7 +135,7 @@ no usable audio device at launch — e.g. a headless box — the engine
 still starts at 44100 Hz as a silent fallback and prints a loud
 warning to stderr, so tests, MIDI routing and GUI checks keep working.
 
-### 3.2 MIDI input
+### 3.3 MIDI input
 
 ```sh
 ./target/release/drumgizmo-rust --list-midi
@@ -128,7 +149,7 @@ note-on routes through `midimap.xml`, note-off stops the voice, and a
 polyphonic aftertouch (or `0xA0` status) event with pressure > 0
 chokes the instrument. Velocity is the byte scale 1..=127.
 
-### 3.3 Loading real DrumGizmo kits
+### 3.4 Loading real DrumGizmo kits
 
 Kits are **100% original-format compatible** (velocity layers,
 round-robins, choke groups, `drumkit.xml` + `midimap.xml`):
@@ -139,7 +160,7 @@ round-robins, choke groups, `drumkit.xml` + `midimap.xml`):
 3. Run: `./target/release/drumgizmo-rust ~/kits/mugen/`
    or `--kit ~/kits/mugen` — the folder with `drumkit.xml` inside.
 
-### 3.4 GUI controls
+### 3.5 GUI controls
 
 Three tabs: **Kit** (loaded kit tree + sample inspection),
 **Sequencer** (pattern editor), **Inspector** (voices/detail watch).
@@ -207,10 +228,12 @@ Then rescan plugins in your DAW. What to expect in every format:
 | Symptom | Meaning / fix |
 | --- | --- |
 | GUI doesn't open | Wayland/X11 compositors need the client libs from §2.2; try `--scale 1.0` on 4K if it looks zoomed |
+| Ctrl+V into the kit path does nothing | Your compositor/clipboard bridge is silent — use the **Paste** button (reads the clipboard directly, works under Wayland) or drag&drop the kit.xml in |
 | `--list-midi` shows only `Midi Through` | That is fine — PipeWire exposes raw MIDI through it; connect your controller with `pw-dump`/`pw-midi`-ish tools, or in the setup your DAW owns the port |
 | `Error` + 44100 silent fallback warning | No usable audio device (headless box). Tests, GUI and MIDI keep working; audio resumes on a machine with a device |
 | DAW shows plugin but no sound | The engine needs a kit: set the kit path in plugin state (or let `--kit` seed it; VST3/CLAP state carries it) |
-| Plugin not discovered | DAW 32-bit? We build x86_64 only. Path wrong? Re-run `scripts/install_local.sh` |
+| Plugin not discovered | DAW 32-bit? We build x86_64 only. Path wrong? Re-run `scripts/install_local.sh`. Windows hosts: check the module file is named `drumgizmo-rust.vst3` inside `Contents\x86_64-win\` |
+| Typing digits/Space in a field does something else | Fixed in v0.1.1 — fields now own the keyboard; update your build |
 
 ---
 

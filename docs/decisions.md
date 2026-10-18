@@ -36,7 +36,32 @@ work yet, it says so here.
   command ring's small capacity and keeping the audio side from
   re-hydrating JSON every frame.
 
+## GUI
+
+* **Keyboard ownership is explicit.** Global shortcuts (Space, 1–9,
+  Ctrl+Z/Y) only fire when no text field has focus — the unconditional
+  shortcut handler used to grab digits into the lane selectors and
+  toggle the transport on Space while the user typed a kit path, which
+  made copy/pasting look broken. The Kit tab now also offers a
+  paste-from-clipboard button (arboard), an inline directory browser
+  and drag&drop, because a Wayland clipboard bridge can be silent even
+  when the app is healthy.
+
 ## Wrappers
+
+* **Windows port is compile-guarded, not DAW-validated.** The vst3
+  crate's ABI constants are `i32` on Windows but `u32` on Linux; the
+  wrapper normalizes every comparison with a targeted
+  `#[allow(clippy::unnecessary_cast)]` on the one ABI-touching `fn`,
+  and CI runs `cargo check + clippy` on `windows-latest`. The Release
+  workflow ships `.exe` + `.vst3 (Contents\\x86_64-win\\drumgizmo-rust.vst3)`
+  + `.clap (dll)` + `.lv2 (dll, TTL rewritten)` bundles. Nobody here has
+  run a Windows DAW, so treat the Windows artifacts as
+  build-verified-host-unverified.
+* **Distro packages** (deb, rpm, pacman `pkg.tar.zst`) are produced by
+  nfpm from one `packaging/nfpm.yaml`: binary into `/usr/bin`, plugins
+  into `/usr/lib/{lv2,vst3,clap}`, run guide into doc paths. System
+  paths make the plugin visible to DAWs without manual copying.
 
 * **Params**: 0 = master gain 0.0..8.0 linear, 1 = tempo 30..360 BPM,
   both automatable in every ABI. VST3 exposes them normalized with

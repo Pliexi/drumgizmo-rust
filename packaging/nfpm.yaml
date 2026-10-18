@@ -1,0 +1,31 @@
+name: drumgizmo-rust
+arch: amd64
+platform: linux
+version: "0.1.1"
+section: sound
+priority: optional
+maintainer: "Pliexi <milyukovegor2009@gmail.com>"
+description: |-
+  DrumGizmo re-implementation in Rust: kit sampler engine, sequencer,
+  egui GUI, MIDI in and CLAP/LV2/VST3 plugin wrappers. Loads original
+  DrumGizmo kits unchanged.
+homepage: https://github.com/Pliexi/drumgizmo-rust
+license: GPL-3.0-or-later
+
+contents:
+  - src: ./target/release/drumgizmo-rust
+    dst: /usr/bin/drumgizmo-rust
+    file_info:
+      mode: 0755
+  - src: ./target/staged/drumgizmo-rust.lv2
+    dst: /usr/lib/lv2/drumgizmo-rust.lv2
+  - src: ./target/staged/drumgizmo-rust.vst3
+    dst: /usr/lib/vst3/drumgizmo-rust.vst3
+  - src: ./target/staged/libdg_clap_plugin.so
+    dst: /usr/lib/clap/drumgizmo-rust.clap
+    file_info:
+      mode: 0755
+  - src: ./docs/run_guide.md
+    dst: /usr/share/doc/drumgizmo-rust/RUN_GUIDE.md
+  - src: ./LICENSE
+    dst: /usr/share/licenses/drumgizmo-rust/LICENSE

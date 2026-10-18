@@ -12,7 +12,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  release:
+  linux:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -29,20 +29,121 @@ jobs:
       - name: Stable Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Tests (no sound card required)
+        run: bash scripts/test.sh
+
       - name: Release build + plugin staging
         run: bash scripts/build.sh
 
       - name: Bundle distributable
+        env:
+          VERSION: ${{ github.ref_name }}
         run: |
           mkdir -p release
           cp target/release/drumgizmo-rust release/
           cp -r target/staged/* release/
           cp README.md LICENSE release/
           cp docs/run_guide.md release/RUN_GUIDE.md
-          zip -qr "drumgizmo-rust-${{ github.ref_name }}-linux-x86_64.zip" release
+          zip -qr "drumgizmo-rust-${VERSION}-linux-x86_64.zip" release
+
+      - name: Install nfpm
+        run: |
+          NFPM=$(curl -s https://api.github.com/repos/goreleaser/nfpm/releases/latest \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
+          echo "nfpm version: ${NFPM}"
+          curl -sSL "https://github.com/goreleaser/nfpm/releases/download/${NFPM}/nfpm_${NFPM#v}_Linux_x86_64.tar.gz" \
+            | tar xz -C "${HOME}/.local/bin" nfpm
+          nfpm --version
+
+      - name: Package deb / rpm / arch linux
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          VERSION=${VERSION#v}
+          sed -i "s/^version: \"0\.[0-9.]*\"/version: \"${VERSION}\"/" packaging/nfpm.yaml
+          mkdir -p dist
+          nfpm pkg -f packaging/nfpm.yaml -p deb -t "dist/drumgizmo-rust_${VERSION}_amd64.deb"
+          nfpm pkg -f packaging/nfpm.yaml -p rpm -t "dist/drumgizmo-rust-${VERSION}-x86_64.rpm"
+          nfpm pkg -f packaging/nfpm.yaml -p arch -t "dist/drumgizmo-rust-${VERSION}-x86_64.pkg.tar.zst"
+
+      - name: Upload linux assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-assets
+          retention-days: 1
+          path: |
+            drumgizmo-rust-*-linux-x86_64.zip
+            dist/*
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Release build
+        run: cargo build --release
+
+      # git-bash steps: stage a Windows VST3 bundle (Contents/x86_64-win/
+      # module.vst3), an LV2 bundle with the .dll name in the TTLs, and
+      # the rename-to-.clap binary. The Windows module must be named
+      # after the bundle stem, same rule as Linux.
+      - name: Stage bundles
+        env:
+          VERSION: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p drumgizmo-rust.vst3/Contents/x86_64-win
+          cp target/release/libdg_vst3_plugin.dll \
+             drumgizmo-rust.vst3/Contents/x86_64-win/drumgizmo-rust.vst3
+          cp crates/vst3_plugin/drumgizmo-rust.vst3/Contents/moduleinfo.json \
+             drumgizmo-rust.vst3/Contents/
+          mkdir -p drumgizmo-rust.lv2
+          sed 's/libdg_lv2_plugin\.so/libdg_lv2_plugin.dll/g' \
+            crates/lv2_plugin/drumgizmo-rust.lv2/manifest.ttl > drumgizmo-rust.lv2/manifest.ttl
+          sed 's/libdg_lv2_plugin\.so/libdg_lv2_plugin.dll/g' \
+            crates/lv2_plugin/drumgizmo-rust.lv2/drumgizmo-rust.ttl > drumgizmo-rust.lv2/drumgizmo-rust.ttl
+          cp target/release/libdg_lv2_plugin.dll drumgizmo-rust.lv2/
+          cp target/release/libdg_clap_plugin.dll drumgizmo-rust.clap
+          mkdir -p release
+          cp target/release/drumgizmo-rust.exe release/
+          cp -r drumgizmo-rust.lv2 drumgizmo-rust.vst3 drumgizmo-rust.clap release/
+          cp README.md LICENSE release/
+          cp docs/run_guide.md release/RUN_GUIDE.md
+
+      - name: Zip
+        env:
+          VERSION: ${{ github.ref_name }}
+        shell: pwsh
+        run: |
+          Compress-Archive -Path release `
+            -DestinationPath "drumgizmo-rust-${env:VERSION}-windows-x86_64.zip"
+
+      - name: Upload windows assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-assets
+          retention-days: 1
+          path: |
+            drumgizmo-rust-*-windows-x86_64.zip
+
+  publish:
+    needs: [linux, windows]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download all assets
+        uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: drumgizmo-rust-*-linux-x86_64.zip
-          generate_release_notes: true
+          files: |
+            assets/drumgizmo-rust-*

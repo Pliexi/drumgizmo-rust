@@ -1,9 +1,15 @@
 # drumgizmo-rust
 
+[![CI](https://github.com/Pliexi/drumgizmo-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/Pliexi/drumgizmo-rust/actions/workflows/ci.yml)
+
 DrumGizmo re-implementation in pure Rust: a multi-core kit sampler with
 the upstream kit format (`drumkit.xml`/`midimap.xml`), velocity layers
 and round robin, a sample-accurate step sequencer, egui GUI, and
 plugin wrappers for CLAP, LV2 and VST3 — plus a standalone app.
+
+Runs on **Linux and Windows x86_64**; every release tag publishes
+zips, a `.deb`, an `.rpm` and a pacman package. See
+[docs/run_guide.md](docs/run_guide.md) for the no-toolchain install.
 
 ## Quick start
 

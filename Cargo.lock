@@ -776,7 +776,7 @@ checksum = "0c87e182de0887fd5361989c677c4e8f5000cd9491d6d563161a8f3a5519fc7f"
 
 [[package]]
 name = "dg-audio-io"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cpal",
  "dg-common",
@@ -792,7 +792,7 @@ dependencies = [
 
 [[package]]
 name = "dg-clap-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap-sys",
  "dg-common",
@@ -801,7 +801,7 @@ dependencies = [
 
 [[package]]
 name = "dg-common"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rtrb",
  "serde",
@@ -810,7 +810,7 @@ dependencies = [
 
 [[package]]
 name = "dg-engine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dg-common",
  "dg-kit",
@@ -823,7 +823,7 @@ dependencies = [
 
 [[package]]
 name = "dg-gui"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "arboard",
  "crossbeam-channel",
@@ -841,7 +841,7 @@ dependencies = [
 
 [[package]]
 name = "dg-kit"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dg-common",
  "roxmltree",
@@ -852,7 +852,7 @@ dependencies = [
 
 [[package]]
 name = "dg-lv2-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dg-common",
  "dg-engine",
@@ -863,7 +863,7 @@ dependencies = [
 
 [[package]]
 name = "dg-midi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dg-common",
  "dg-sequencer",
@@ -872,7 +872,7 @@ dependencies = [
 
 [[package]]
 name = "dg-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dg-common",
  "dg-engine",
@@ -885,7 +885,7 @@ dependencies = [
 
 [[package]]
 name = "dg-sampler"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dg-common",
  "dg-kit",
@@ -893,7 +893,7 @@ dependencies = [
 
 [[package]]
 name = "dg-sequencer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dg-common",
  "serde",
@@ -902,7 +902,7 @@ dependencies = [
 
 [[package]]
 name = "dg-standalone"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dg-audio-io",
  "dg-common",
@@ -913,7 +913,7 @@ dependencies = [
 
 [[package]]
 name = "dg-vst3-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dg-common",
  "dg-plugin",
