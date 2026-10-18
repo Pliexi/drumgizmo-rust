@@ -825,6 +825,7 @@ dependencies = [
 name = "dg-gui"
 version = "0.1.0"
 dependencies = [
+ "arboard",
  "crossbeam-channel",
  "dg-common",
  "dg-engine",

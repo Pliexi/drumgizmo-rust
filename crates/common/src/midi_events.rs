@@ -56,7 +56,9 @@ impl MidiEvent {
         Self {
             kind: MessageType::Choke,
             note,
-            velocity: 0.0,
+            // The realtime engine ignores Choke events with velocity 0;
+            // a constructed choke must always fire.
+            velocity: 1.0,
             offset,
         }
     }

@@ -41,6 +41,9 @@ toml = "0.9"
 # GUI
 egui = "0.37"
 eframe = { version = "0.37", default-features = false, features = ["glow", "wayland", "x11", "accesskit", "default_fonts"] }
+# System clipboard reads for the Paste button (wl-clipboard-rs/x11rb/clipboard-win
+# are pure Rust: no extra native deps)
+arboard = { version = "3", features = ["wayland-data-control"] }
 # Audio devices (ALSA/JACK via PipeWire) and MIDI ports
 cpal = "0.18"
 midir = "0.11"

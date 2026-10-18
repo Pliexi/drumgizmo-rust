@@ -141,6 +141,27 @@ impl DrumApp {
         self.send(RtCommand::Midi(event));
     }
 
+    /// Pastes the system clipboard into the kit path editor. Uses
+    /// arboard directly (wl-clipboard-rs on Wayland portals included),
+    /// so it works even where the winit shortcut bridge is silent.
+    pub(crate) fn paste_kit_path(&mut self) {
+        let pasted = arboard::Clipboard::new()
+            .and_then(|mut clipboard| clipboard.get_text())
+            .map(|text| crate::kit_tab::normalize_kit_path(&text));
+        match pasted {
+            Ok(text) if !text.is_empty() => {
+                self.kit_dir_entry = text;
+                self.status = "Path pasted — press Load Kit or pick a file below.".into();
+            }
+            Ok(_) => {
+                self.status = "Clipboard holds no text.".into();
+            }
+            Err(error) => {
+                self.status = format!("Could not read clipboard: {error}");
+            }
+        }
+    }
+
     /// Loads a kit: UI side parses (instant summary), audio side gets the
     /// asynchronous LoadKit command.
     pub fn request_kit_load(&mut self, path: String) {
@@ -307,6 +328,15 @@ impl DrumApp {
     // ------------------------------------------------------------------
 
     fn handle_shortcuts(&mut self, ctx: &Context) {
+        // While the user types into any text field (kit path, import
+        // path...) the global shortcuts must yield to the editor:
+        // otherwise every digit typed would also switch the selected
+        // lane, and Space would toggle the transport instead of
+        // appearing inside the field. Ctrl+V/Ctrl+Z in the field are
+        // then handled by egui's own text editor.
+        if ctx.egui_wants_keyboard_input() {
+            return;
+        }
         let ctrl = ctx.input(|input| input.modifiers.contains(Modifiers::CTRL));
         let (space, undo, redo) = ctx.input(|input| {
             (
