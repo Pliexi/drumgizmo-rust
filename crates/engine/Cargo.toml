@@ -12,6 +12,9 @@ dg-common = { workspace = true }
 dg-kit = { workspace = true }
 dg-sampler = { workspace = true }
 dg-sequencer = { workspace = true }
+rtrb = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

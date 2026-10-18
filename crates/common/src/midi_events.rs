@@ -10,6 +10,8 @@ pub enum MessageType {
     OnSet,
     /// Note off / zero velocity considered as choke for the same instrument.
     NoteOff,
+    /// After-touch on a note: choke/mute trigger (DrumGizmo convention).
+    Choke,
 }
 
 /// A single MIDI event destined for the realtime engine.
@@ -40,6 +42,16 @@ impl MidiEvent {
     pub fn note_off(note: u8, offset: usize) -> Self {
         Self {
             kind: MessageType::NoteOff,
+            note,
+            velocity: 0.0,
+            offset,
+        }
+    }
+
+    /// Creates a choke (after-touch) event on a note.
+    pub fn choke(note: u8, offset: usize) -> Self {
+        Self {
+            kind: MessageType::Choke,
             note,
             velocity: 0.0,
             offset,

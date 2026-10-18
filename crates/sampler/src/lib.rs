@@ -9,7 +9,7 @@
 pub mod selection;
 pub mod voice;
 
-pub use selection::{PowerList, SampleSelection, VelocityRangeTable};
+pub use selection::{PowerList, SampleRef, SampleSelection, SelectionStrategy, VelocityRangeTable};
 pub use voice::{
     ramp_frames, SampleBank, Voice, VoiceEvent, VoiceManager, CHOKE_EVENT_RAMPDOWN_MS,
     GROUP_RAMPDOWN_MS, VOICE_LIMIT_MAX_DEFAULT, VOICE_LIMIT_RAMPDOWN_DEFAULT_MS, VOICE_POOL,

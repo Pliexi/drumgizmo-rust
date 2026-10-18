@@ -18,6 +18,7 @@
 //! preallocated, sample data is accessed through borrowed slices.
 
 use dg_common::Sample;
+use dg_kit::LoadedKit;
 
 /// Ceiling of simultaneously rendered voices.
 pub const VOICE_POOL: usize = 1024;
@@ -165,17 +166,10 @@ impl Voice {
         self.finish_frame();
     }
 
-    /// One frame of bookkeeping: advance, natural end, ramp-down count.
+    /// One frame of bookkeeping: ramp-down count, advance, natural end.
     #[inline]
     fn finish_frame(&mut self) {
-        self.position += self.position_step;
-
-        if self.position >= self.end_frame as f64 {
-            self.active = false;
-            return;
-        }
-
-        // Only rendered frames advance the ramp, mimicking upstream where
+        // Only rendered frames decrement the ramp, mimicking upstream where
         // `evt.t` never advances over skipped onset frames.
         if self.rampdown_in_progress()
             && self.position >= 0.0
@@ -184,7 +178,14 @@ impl Voice {
             self.rampdown_count -= 1;
             if self.rampdown_count == 0 {
                 self.active = false;
+                return;
             }
+        }
+
+        self.position += self.position_step;
+
+        if self.position >= self.end_frame as f64 {
+            self.active = false;
         }
     }
 }
@@ -263,8 +264,15 @@ impl VoiceManager {
 
     /// `applyChokeGroup` upstream: every non-ramping voice of `group_id`
     /// that does not belong to the triggering instrument fades over
-    /// `ramp_length` frames starting at the choked voice's current position.
-    pub fn apply_choke_group(&mut self, group_id: u32, trigger_instrument: usize, ramp_length: u64) {
+    /// `ramp_length` frames. `delay_frames` (usually the block-relative
+    /// onset offset of the choking event) delays the ramp in voice time.
+    pub fn apply_choke_group(
+        &mut self,
+        group_id: u32,
+        trigger_instrument: usize,
+        ramp_length: u64,
+        delay_frames: f64,
+    ) {
         if group_id == 0 {
             return; // "" group upstream
         }
@@ -274,20 +282,25 @@ impl VoiceManager {
                 && voice.group_id == group_id
                 && voice.instrument_id != trigger_instrument
             {
-                arm_ramp_down(voice, ramp_length);
+                arm_ramp_down(voice, ramp_length, delay_frames);
             }
         }
     }
 
     /// `processChoke` upstream: ramps all events of one instrument down
     /// (called with 450 ms from the MIDI choke mapping).
-    pub fn apply_choke_instrument(&mut self, instrument_id: usize, ramp_length: u64) {
+    pub fn apply_choke_instrument(
+        &mut self,
+        instrument_id: usize,
+        ramp_length: u64,
+        delay_frames: f64,
+    ) {
         for voice in &mut self.voices {
             if voice.active
                 && !voice.rampdown_in_progress()
                 && voice.instrument_id == instrument_id
             {
-                arm_ramp_down(voice, ramp_length);
+                arm_ramp_down(voice, ramp_length, delay_frames);
             }
         }
     }
@@ -312,7 +325,7 @@ impl VoiceManager {
 
         non_ramping.sort_by_key(|&i| self.voices[i].spawned);
         let eldest = non_ramping[0];
-        arm_ramp_down(&mut self.voices[eldest], ramp_frames(ramp_ms, samplerate));
+        arm_ramp_down(&mut self.voices[eldest], ramp_frames(ramp_ms, samplerate), 0.0);
     }
 
     /// Number of active voices.
@@ -352,13 +365,23 @@ impl VoiceManager {
     }
 }
 
-/// Arms a ramp: it starts at (or after) the voice's current position and
-/// counts down `ramp_length` rendered frames.
-fn arm_ramp_down(voice: &mut Voice, ramp_length: u64) {
+/// Arms a ramp: it starts `delay_frames` after the voice's current
+/// position and counts down `ramp_length` rendered frames.
+fn arm_ramp_down(voice: &mut Voice, ramp_length: u64, delay_frames: f64) {
     let ramp_length = ramp_length.max(1);
     voice.ramp_length = ramp_length;
-    voice.rampdown_start = voice.position;
+    voice.rampdown_start = voice.position + delay_frames.clamp(0.0, f64::MAX);
     voice.rampdown_count = ramp_length as i64;
+}
+
+impl SampleBank for LoadedKit {
+    fn channel(&self, file_index: usize, filechannel: usize) -> &[Sample] {
+        self.pub_files
+            .get(file_index)
+            .and_then(|f| f.data.get(filechannel))
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
+    }
 }
 
 #[cfg(test)]
@@ -412,7 +435,7 @@ mod tests {
         let b = manager.spawn(&ev(2, 7, 0, 0), 100_000, 1.0).unwrap();
         let c = manager.spawn(&ev(3, 9, 0, 0), 100_000, 1.0).unwrap();
         // Excluding the trigger instrument, like upstream.
-        manager.apply_choke_group(7, 1, ramp_frames(GROUP_RAMPDOWN_MS, 44100));
+        manager.apply_choke_group(7, 1, ramp_frames(GROUP_RAMPDOWN_MS, 44100), 0.0);
         assert!(
             !manager.voices[a].rampdown_in_progress(),
             "trigger's own voice stays untouched"
@@ -425,7 +448,7 @@ mod tests {
     fn empty_group_never_chokes() {
         let mut manager = VoiceManager::new();
         let a = manager.spawn(&ev(1, 0, 0, 0), 100_000, 1.0).unwrap();
-        manager.apply_choke_group(0, 2, 100);
+        manager.apply_choke_group(0, 2, 100, 0.0);
         assert!(!manager.voices[a].rampdown_in_progress());
     }
 
@@ -434,7 +457,7 @@ mod tests {
         let mut manager = VoiceManager::new();
         let a = manager.spawn(&ev(1, 7, 0, 0), 100_000, 1.0).unwrap();
         let b = manager.spawn(&ev(2, 7, 0, 0), 100_000, 1.0).unwrap();
-        manager.apply_choke_instrument(1, ramp_frames(CHOKE_EVENT_RAMPDOWN_MS, 44100));
+        manager.apply_choke_instrument(1, ramp_frames(CHOKE_EVENT_RAMPDOWN_MS, 44100), 0.0);
         assert!(manager.voices[a].rampdown_in_progress());
         assert_eq!(
             manager.voices[a].ramp_length,
@@ -447,9 +470,9 @@ mod tests {
     fn choke_is_applied_once_only() {
         let mut manager = VoiceManager::new();
         let a = manager.spawn(&ev(1, 7, 0, 0), 100_000, 1.0).unwrap();
-        manager.apply_choke_group(7, 2, 8);
+        manager.apply_choke_group(7, 2, 8, 0.0);
         let first = manager.voices[a].rampdown_count;
-        manager.apply_choke_group(7, 2, 8);
+        manager.apply_choke_group(7, 2, 8, 0.0);
         assert_eq!(manager.voices[a].rampdown_count, first);
     }
 
@@ -511,7 +534,7 @@ mod tests {
         let mut manager = VoiceManager::new();
         let index = manager.spawn(&ev(1, 0, 0, 0), 64, 1.0).unwrap();
         let ramp = 8u64;
-        manager.apply_choke_instrument(1, ramp);
+        manager.apply_choke_instrument(1, ramp, 0.0);
         let mut out = vec![0.0f32; ramp as usize + 2];
         manager.render(&bank, &mut [&mut out]);
         // envelope: length/length, .., 1/length, then removed (0 afterwards)
@@ -543,6 +566,21 @@ mod tests {
         assert_eq!(chokes.len(), 1, "exactly the eldest is choked");
         assert_eq!(chokes[0].spawned, 1);
         assert_eq!(chokes[0].ramp_length, ramp_frames(0.5, 44100));
+    }
+
+    #[test]
+    fn choke_delay_starts_ramp_later() {
+        let bank = Flat(vec![vec![1.0f32; 32]]);
+        let mut manager = VoiceManager::new();
+        manager.spawn(&ev(1, 0, 0, 0), 32, 1.0).unwrap();
+        manager.apply_choke_instrument(1, 4, 4.0);
+        let mut out = vec![0.0f32; 10];
+        manager.render(&bank, &mut [&mut out]);
+        assert_eq!(
+            out,
+            vec![1.0, 1.0, 1.0, 1.0, 1.0, 0.75, 0.5, 0.25, 0.0, 0.0],
+            "ramp begins after the 4 frame delay"
+        );
     }
 
     #[test]
