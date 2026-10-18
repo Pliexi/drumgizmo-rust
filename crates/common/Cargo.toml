@@ -9,3 +9,5 @@ description = "Shared types and helpers for the drumgizmo-rust workspace"
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
+rtrb = { workspace = true }

@@ -7,7 +7,7 @@ use rtrb::Producer;
 
 use egui::{Context, Key, Modifiers};
 
-use dg_common::{MessageType, MidiEvent, RtCommand};
+use dg_common::{MessageType, MidiEvent, RtCommand, SharedProducer};
 use dg_sequencer::Pattern;
 
 use crate::summary::KitSummary;
@@ -33,9 +33,11 @@ enum UndoEntry {
 }
 
 /// GUI application state (`pub(crate)` fields: the tab modules are the
-/// view layer of this state).
+/// view layer of this state). The command ring producer is shared with
+/// the MIDI callback through the mutex — host-side only, the audio
+/// thread owns the consumer side and never locks it.
 pub struct DrumApp {
-    pub(crate) producer: Producer<RtCommand>,
+    pub(crate) producer: SharedProducer,
 pub(crate) mode: Mode,
     /// Status text that the bottom bar shows.
     status: String,
@@ -79,7 +81,7 @@ impl DrumApp {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         options: crate::AppOptions,
-        producer: Producer<RtCommand>,
+        producer: SharedProducer,
     ) -> Self {
         Self::configure_theme(&cc.egui_ctx);
         let mut app = Self {
@@ -130,7 +132,7 @@ impl DrumApp {
 
     fn send(&mut self, command: RtCommand) {
         // Commands may not wait: the ring only holds a few messages.
-        if self.producer.push(command).is_err() {
+        if self.producer.lock().unwrap().push(command).is_err() {
             self.status_push("command buffer full, message dropped");
         }
     }
@@ -287,7 +289,7 @@ impl DrumApp {
     }
 
     fn status_push(&mut self, text: &str) {
-        self.status = format!("{text}");
+        self.status = text.to_string();
     }
 
     // ------------------------------------------------------------------
@@ -434,8 +436,8 @@ impl eframe::App for DrumApp {
 // ---------------------------------------------------------------------
 
 impl DrumApp {
-    pub(crate) fn producer(&mut self) -> &mut Producer<RtCommand> {
-        &mut self.producer
+    pub(crate) fn producer(&mut self) -> std::sync::MutexGuard<'_, Producer<RtCommand>> {
+        self.producer.lock().unwrap()
     }
 
     pub(crate) fn set_status(&mut self, text: impl Into<String>) {

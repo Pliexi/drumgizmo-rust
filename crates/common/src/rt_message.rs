@@ -3,7 +3,16 @@
 //! Everything here must be `Send` and cheap to move across a lock-free ring
 //! buffer (`rtrb`). Strings are transported as lightweight handles.
 
+use std::sync::{Arc, Mutex};
+
+use rtrb::Producer;
 use serde::{Deserialize, Serialize};
+
+/// Handle to the engine's command ring for host threads. The ring is
+/// strictly single producer (rtrb), so every host side source (GUI,
+/// MIDI callback, the standalone CLI) shares this mutex-locked
+/// producer; the realtime consumer never locks it.
+pub type SharedProducer = Arc<Mutex<Producer<RtCommand>>>;
 
 /// Realtime command set.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -322,8 +322,17 @@ impl Engine {
                 self.sequencer.stop();
             }
             RtCommand::SeqTempo { bpm } => {
+                // Explicit tempo commands (GUI drag, plugin tempo
+                // parameter) target the internal clock: hosts that
+                // drive sample positions per block never send this.
+                // Previously `host_tempo` was stored while
+                // `host_sync == false` left `tempo()` reading the
+                // untouched internal value (erratum now fixed).
                 self.sequencer.host_sync = false;
                 self.sequencer.host_tempo = Some(bpm);
+                if bpm.is_finite() && bpm > 0.0 {
+                    self.sequencer.internal_tempo = bpm;
+                }
             }
             RtCommand::SeqPattern { json } => match serde_json::from_str::<SeqSnapshot>(&json) {
                 Ok(snapshot) => {

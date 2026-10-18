@@ -20,9 +20,7 @@ mod summary;
 
 pub use app::{DrumApp, Mode};
 
-use rtrb::Producer;
-
-use dg_common::RtCommand;
+use dg_common::SharedProducer;
 use dg_sequencer::Pattern;
 
 /// Options for launching the window (standalone binary builds these).
@@ -50,8 +48,9 @@ impl Default for AppOptions {
 }
 
 /// Runs the eframe main loop. Returns when the window is closed. The
-/// producer must belong to the same engine the standalone app streamed.
-pub fn run(options: AppOptions, producer: Producer<RtCommand>) -> eframe::Result<()> {
+/// producer must belong to the same engine the standalone app streamed
+/// (shared with other host-side senders through the mutex).
+pub fn run(options: AppOptions, producer: SharedProducer) -> eframe::Result<()> {
     let scale = if options.scale_override > 0.0 {
         Some(options.scale_override)
     } else {

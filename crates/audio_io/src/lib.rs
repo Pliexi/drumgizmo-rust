@@ -19,9 +19,8 @@ use std::sync::Arc;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, StreamConfig};
 use midir::{MidiInput, MidiInputConnection, MidiInputPort};
-use rtrb::Producer;
 
-use dg_common::{MidiEvent, MessageType, RtCommand};
+use dg_common::{MidiEvent, MessageType, RtCommand, SharedProducer};
 use dg_engine::Engine;
 
 /// Decode raw short MIDI bytes as delivered by a midir input callback
@@ -152,13 +151,7 @@ impl StreamStats {
                 .compare_exchange(observed, peak_bits, Ordering::Relaxed, Ordering::Relaxed)
             {
                 Ok(_) => return,
-                Err(actual) => {
-                    if self.peak.load(Ordering::Relaxed) == actual {
-                        observed = actual;
-                    } else {
-                        observed = actual;
-                    }
-                }
+                Err(actual) => observed = actual, // someone raised the bar; re-check
             }
         }
     }
@@ -277,7 +270,7 @@ impl OutputSetup {
                 .or_else(|| {
                     ranges
                         .first()
-                        .map(|range| range.clone().with_max_sample_rate())
+                        .map(|range| (*range).with_max_sample_rate())
                 })
                 .unwrap_or(default_config)
         };
@@ -382,9 +375,11 @@ pub fn list_midi_inputs() -> Vec<String> {
 }
 
 /// Keeps a MIDI input alive: callbacks push decoded events into the
-/// engine's command ring.
+/// engine's command ring (shared, host-side producer).
 pub struct MidiInputHandle {
-    _connection: MidiInputConnection<()>,
+    /// The connection is typed over the shared producer; the handle
+    /// keeps it alive for the port lifetime.
+    _connection: MidiInputConnection<SharedProducer>,
     pub port: String,
 }
 
@@ -394,7 +389,7 @@ pub struct MidiInputHandle {
 /// [`RtCommand::Midi`].
 pub fn bind_midi_input(
     name_fragment: &str,
-    mut producer: Producer<RtCommand>,
+    producer: SharedProducer,
 ) -> Result<MidiInputHandle, MidiError> {
     let input =
         MidiInput::new("drumgizmo-rust-midi").map_err(|e| MidiError::Connect(format!("{e}")))?;
@@ -427,15 +422,17 @@ pub fn bind_midi_input(
         .connect(
             port,
             "drumgizmo-rust-in",
-            move |_stamp, bytes, _shared| {
+            move |_stamp, bytes, shared| {
                 for event in decode_midi_bytes(bytes) {
                     // Messages cannot wait: dropping one beats stalling
                     // the midi thread, and the command ring is the only
-                    // transport toward the audio thread.
-                    let _ = producer.push(RtCommand::Midi(event));
+                    // transport toward the audio thread. The lock is
+                    // taken only against the GUI/CLI producers, never
+                    // the audio thread.
+                    let _ = shared.lock().unwrap().push(RtCommand::Midi(event));
                 }
             },
-            (),
+            producer.clone(),
         )
         .map_err(|error| MidiError::Connect(format!("{error}")))?;
     Ok(MidiInputHandle {

@@ -8,6 +8,7 @@ pub mod rng;
 pub mod rt_message;
 
 pub use midi_events::{decode_midi_status_bytes, MessageType, MidiEvent};
+pub use rt_message::SharedProducer;
 pub use rt_message::RtCommand;
 
 /// The sample format used everywhere in the workspace.

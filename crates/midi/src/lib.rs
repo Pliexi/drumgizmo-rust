@@ -85,7 +85,7 @@ pub fn parse_smf(bytes: &[u8]) -> Result<MidiFile, MidiError> {
     for track in &smf.tracks {
         let mut tick: u32 = 0;
         for event in track {
-            tick += event.delta.as_int() as u32;
+            tick += event.delta.as_int();
             match &event.kind {
                 midly::TrackEventKind::Midi { channel, message } => match message {
                     midly::MidiMessage::NoteOn { key, vel } => {
@@ -99,9 +99,9 @@ pub fn parse_smf(bytes: &[u8]) -> Result<MidiFile, MidiError> {
                             });
                         }
                     }
-                    midly::MidiMessage::Aftertouch { key, vel } => {
+                    midly::MidiMessage::Aftertouch { key, vel }
                         // DrumGizmo convention: aftertouch on a note chokes it.
-                        if vel.as_int() > 0 {
+                        if vel.as_int() > 0 => {
                             notes.push(NoteOn {
                                 channel: channel.as_int(),
                                 note: key.as_int(),
@@ -110,7 +110,6 @@ pub fn parse_smf(bytes: &[u8]) -> Result<MidiFile, MidiError> {
                                 choke: true,
                             });
                         }
-                    }
                     _ => {}
                 },
                 midly::TrackEventKind::Meta(midly::MetaMessage::Tempo(us_per_beat)) => {
@@ -263,11 +262,10 @@ pub fn pattern_from_midi(
         // De-duplicate to the loudest hit of the step (ratchet/flam extras
         // quantize onto the same step; their data is not reconstructable).
         let existing = &mut lane.steps[step];
-        if existing.enabled && !existing.choke {
-            if velocity <= existing.velocity {
+        if existing.enabled && !existing.choke
+            && velocity <= existing.velocity {
                 continue;
             }
-        }
         *existing = Step {
             enabled: true,
             velocity,
