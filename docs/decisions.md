@@ -71,6 +71,20 @@ work yet, it says so here.
 assert rendered samples, and the audio_io glue test builds a kit via
 `kitgen` in temp dirs. Nothing mocks hardware it cannot see.
 
+## Infrastructure
+
+* **CI** (`.github/workflows/ci.yml`) runs on ubuntu-22.04 on every
+  push: `cargo fmt --check`, clippy with `-D warnings`, the full test
+  suite, the release build, and a distributable zip artifact
+  (standalone binary + all three plugin bundles).
+* **Releases** (`.github/workflows/release.yml`) fire on `v*` tags and
+  publish a zip containing the standalone app, the LV2/VST3 bundles,
+  the CLAP binary and the run guide — the "download and run" path in
+  `docs/run_guide.md` is produced by this workflow (`v0.1.0` exists).
+* The third-party CLAP validation was done with `clap-info` built from
+  the free-audio upstream source (C, external tool, not part of this
+  repository).
+
 ## Blockers (honest)
 
 1. ~~**GitHub push waits for a PAT.**~~ **RESOLVED.** PAT was provided;
