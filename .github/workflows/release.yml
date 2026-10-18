@@ -143,8 +143,16 @@ jobs:
           path: assets
           merge-multiple: true
 
+      # upload-artifact keeps the dist/ directory level; flatten so the
+      # manifest glob finds the packages next to the zips.
+      - name: Flatten assets
+        run: |
+          mkdir -p out
+          find assets -type f -exec cp {} out/ \;
+          ls out/
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            assets/drumgizmo-rust-*
+            out/drumgizmo-rust-*
