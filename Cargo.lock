@@ -892,11 +892,7 @@ version = "0.1.0"
 dependencies = [
  "clap-sys",
  "dg-common",
- "dg-engine",
- "dg-kit",
  "dg-plugin",
- "dg-sequencer",
- "serde_json",
 ]
 
 [[package]]

@@ -12,9 +12,5 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 dg-common = { workspace = true }
-dg-engine = { workspace = true }
-dg-kit = { workspace = true }
 dg-plugin = { workspace = true }
-dg-sequencer = { workspace = true }
 clap-sys = { workspace = true }
-serde_json = { workspace = true }

@@ -22,8 +22,9 @@ use dg_common::MidiEvent;
 /// ends reachable (0.0 → 1 so zero velocity does not disqualify the hit;
 /// hosts rarely want true zero-velocity hits anyway).
 pub fn velocity_to_byte(host_velocity: f32) -> f32 {
-    let raw = (host_velocity * 127.0).round().max(1.0).min(127.0);
-    raw
+    (host_velocity * 127.0)
+        .round()
+        .clamp(1.0, 127.0)
 }
 
 /// Block-relative offset adapter used by wrappers that receive absolute

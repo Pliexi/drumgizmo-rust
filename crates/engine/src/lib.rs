@@ -404,7 +404,7 @@ impl Engine {
         let voice_gain = self.voice_gains.get(instrument).copied().unwrap_or(1.0);
 
         for mapping in &sample.audiofiles {
-            if mapping.instrument_channel >= NO_CHANNEL {
+            if mapping.instrument_channel == NO_CHANNEL {
                 continue; // unmapped kit channel
             }
             let normalized_scale = if self.normalized_samples && sample.normalized {
@@ -495,7 +495,7 @@ impl Engine {
         //      render frame entirely.
         self.pending.extend_from_slice(midi);
         self.pending.sort_by_key(|e| e.offset);
-        let midi_events: Vec<MidiEvent> = self.pending.drain(..).collect();
+        let midi_events: Vec<MidiEvent> = std::mem::take(&mut self.pending);
         for event in midi_events {
             events += 1;
             let note = event.note as usize;
