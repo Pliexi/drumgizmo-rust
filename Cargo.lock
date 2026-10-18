@@ -1018,11 +1018,7 @@ name = "dg-vst3-plugin"
 version = "0.1.0"
 dependencies = [
  "dg-common",
- "dg-engine",
- "dg-kit",
  "dg-plugin",
- "dg-sequencer",
- "serde_json",
  "vst3",
 ]
 

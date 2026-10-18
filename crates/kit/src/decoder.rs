@@ -132,7 +132,7 @@ fn append_planar(decoded: &GenericAudioBufferRef<'_>, data: &mut Vec<Vec<f32>>) 
             data.resize(channels, Vec::new());
         }
     }
-    let frames = decoded.frames() as usize;
+    let frames = decoded.frames();
     if frames == 0 {
         return;
     }

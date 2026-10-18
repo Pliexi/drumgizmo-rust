@@ -127,6 +127,7 @@ pub struct ClickMapDom {
 
 /// Mirrors `MetadataDOM`.
 #[derive(Debug, Clone, PartialEq)]
+#[derive(Default)]
 pub struct MetadataDom {
     pub version: String,
     pub title: String,
@@ -146,25 +147,6 @@ pub struct MetadataDom {
     pub default_midimap_file: String,
 }
 
-impl Default for MetadataDom {
-    fn default() -> Self {
-        Self {
-            version: String::new(),
-            title: String::new(),
-            description: String::new(),
-            license: String::new(),
-            notes: String::new(),
-            author: String::new(),
-            email: String::new(),
-            website: String::new(),
-            logo: String::new(),
-            image: String::new(),
-            image_map: String::new(),
-            clickmaps: Vec::new(),
-            default_midimap_file: String::new(),
-        }
-    }
-}
 
 /// Mirrors `DrumkitDOM`.
 #[derive(Debug, Clone, PartialEq)]

@@ -6,7 +6,7 @@
 //! * required attributes and elements hard-fail the whole parse
 //! * optional attributes fall back to exactly the same defaults
 //!   (`drumkit version="1.0"`, `samplerate="44100.0"`,
-//!    `choketime="68"` milliseconds, `filechannel="1"` mono, ...)
+//!   `choketime="68"` milliseconds, `filechannel="1"` mono, ...)
 //! * `<metadata>` children overwrite the fallback `name`/`description`
 //!   attributes of the `<drumkit>` root node, matching `dgxmlparser.cc`
 
