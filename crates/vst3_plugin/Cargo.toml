@@ -11,6 +11,5 @@ description = "VST3 wrapper for the drumgizmo-rust engine"
 crate-type = ["cdylib"]
 
 [dependencies]
-dg-common = { workspace = true }
 dg-plugin = { workspace = true }
-vst3 = { workspace = true }
+nice-plug = { workspace = true }

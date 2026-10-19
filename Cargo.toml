@@ -17,7 +17,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 license = "GPL-3.0-or-later"
 authors = ["drumgizmo-rust contributors"]
@@ -44,12 +44,13 @@ eframe = { version = "0.37", default-features = false, features = ["glow", "wayl
 # System clipboard reads for the Paste button (wl-clipboard-rs/x11rb/clipboard-win
 # are pure Rust: no extra native deps)
 arboard = { version = "3", features = ["wayland-data-control"] }
+rfd = "0.15"
 # Audio devices (ALSA/JACK via PipeWire) and MIDI ports
 cpal = "0.18"
 midir = "0.11"
-# Plugin ABI wrappers
-clap-sys = "0.5"
-vst3 = "0.3"
+# Plugin ABI wrapper (nice-plug: CLAP+VST3, pure Rust) + its egui adapter
+nice-plug = "0.4.2"
+nice-plug-egui = "0.6.0"
 
 # Internal crates
 dg-common = { path = "crates/common" }

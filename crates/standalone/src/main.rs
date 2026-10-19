@@ -10,7 +10,7 @@ use std::sync::Mutex;
 
 use rtrb::Producer;
 
-use dg_audio_io::{bind_midi_input, list_midi_inputs, OutputSetup};
+use dg_audio_io::{bind_midi_input, list_audio_outputs, list_midi_inputs, OutputSetup};
 use dg_common::{RtCommand, SharedProducer};
 
 /// Command ring capacity shared by MIDI, GUI and the CLI pre-commands.
@@ -27,6 +27,7 @@ OPTIONS:
     --midi-in <NAME>   MIDI input port name fragment; \"default\" uses the first port
     --gain <VALUE>     master gain 0.0..=8.0 (default 1.0)
     --scale <FACTOR>   UI scale override (default: platform DPI)
+    --list-audio       list output devices/configs and exit (audio debugging)
     --list-midi        list MIDI input ports and exit
     --help             this text
     --version          print the version and exit
@@ -36,6 +37,7 @@ OPTIONS:
 #[derive(Debug, Clone)]
 pub enum Action {
     Run(Config),
+    ListAudio,
     ListMidi,
     Help,
     Version,
@@ -99,6 +101,7 @@ pub fn parse_args(args: &[String]) -> Result<Action, String> {
         match raw.as_str() {
             "--help" | "-h" => return Ok(Action::Help),
             "--version" => return Ok(Action::Version),
+            "--list-audio" => return Ok(Action::ListAudio),
             "--list-midi" => return Ok(Action::ListMidi),
             _ => {}
         }
@@ -163,6 +166,10 @@ fn main() -> ExitCode {
         }
         Ok(Action::Version) => {
             println!("drumgizmo-rust {}", env!("CARGO_PKG_VERSION"));
+            ExitCode::SUCCESS
+        }
+        Ok(Action::ListAudio) => {
+            print!("{}", list_audio_outputs());
             ExitCode::SUCCESS
         }
         Ok(Action::ListMidi) => {

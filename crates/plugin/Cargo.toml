@@ -10,8 +10,12 @@ description = "Format-independent plugin logic: params, state, engine lifecycle"
 [dependencies]
 dg-common = { workspace = true }
 dg-engine = { workspace = true }
+dg-gui = { workspace = true }
 dg-kit = { workspace = true }
 dg-sequencer = { workspace = true }
+egui = { workspace = true }
+nice-plug = { workspace = true }
+nice-plug-egui = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 rtrb = { workspace = true }

@@ -164,3 +164,58 @@ assert rendered samples, and the audio_io glue test builds a kit via
    returns an empty list (midir connects via ALSA virtual ports
    through PipeWire when configured; nothing for us to fix, but the
    GUI cannot create virtual ports either — a real missing feature).
+
+### v0.1.3
+
+1. **CLAP + VST3 moved onto nice-plug (a ready-made wrapper), GUIs
+   included.** The user asked for the editor to actually appear in
+   hosts. Rather than hand-rolling both wrappers a second time (the
+   v0.1.x ones had no editor), we chose the maintained RustAudio
+   framework `nice-plug` (0.4.2, the maintained fork of NIH-plug) and
+   `nice-plug-egui` (0.6.0): both are pure Rust, depend on the exact
+   versions we already pin (clap-sys 0.5, vst3 0.3 bindings, egui
+   0.37), and provide the CLAP/VST3 std-C entry machinery, state
+   persistence, and egui baseview embedding. The `dg-clap-plugin` /
+   `dg-vst3-plugin` crates are now ~15-line export shims; all of the
+   logic lives in one place, `dg_plugin::nih`. The LV2 wrapper stayed
+   hand-written (lv2-sys) and GUI-less — that is a documented gap, not
+   a regression.
+2. **The host sees zero automatable parameters — all state rides in
+   `#[persist]` fields** (kit path, pattern JSON, master gain, tempo).
+   Reason: nice-plug exposes no sanctioned way for the plugin's own
+   GUI to write parameter values (the only supported path is a
+   `ParamSetter` built from a host callback plugins don't receive);
+   carrying an out-of-sync automatable gain into host-saved state
+   would be worse than not automating it — drum gain automation is
+   normally done with the DAW track fader anyway. Honest consequence:
+   the (nice-plug) `clap.audio-ports-config` extension is advertised
+   unconditionally, and `clap-info`'s JSON writer crashes on the
+   spec-valid *null* `main_input_port_type` (no input port). The
+   local clap-info build used for validation was patched by that
+   two-line null guard; hosts are not affected.
+3. **VST3 class IDs changed.** v0.1.2 registered two legacy classes
+   (processor CID `5D4B52F0-…`, controller `8F87F495-…`). nice-plug
+   exports the modern single combined "Audio Module Class" with CID
+   `6472756D-…` (`*b"drumgizmo-rustV3"`), moduleinfo.json updated.
+   Old DAW sessions with the v0.1.2 VST3 will not restore instances —
+   documented in the run guide, cannot be avoided when switching to a
+   different wrapper generation.
+4. **Host tempo outranks the GUI tempo, but only while the host
+   transport is playing.** When playing, `transport.tempo` syncs the
+   sequencer; when stopped, the GUI's tempo slider rules. Persisted
+   tempo is always the GUI's value.
+5. **cpal output now accepts more sample formats (the "hit is silent"
+   fix).** `OutputSetup::choose()` used to accept only f32 configs;
+   many devices (e.g. the EVO4 USB interface field-tested) offer i16
+   or a broken 1-channel f32 map, so the standalone silently ran with
+   no stream. The chooser is now hardware-first (tier 1: any format
+   with a stereo-or-wider config; tier 2: mono fallback) and a single
+   generic callback converts rendered f32 samples to the device
+   format (`cpal::FromSample<f32>`). `--list-audio` (new) prints the
+   full device/config inventory for diagnosis; the per-format tiering
+   is unit-tested without hardware.
+6. **The kit file chooser is `rfd` 0.15 (xdg-portal backend), pure
+   Rust and free of GTK3 system deps**, so the Linux CI/runtime deps
+   did not grow. If a portal host is unavailable (some bare WMs), the
+   button reports a status hint and the manual path entry still works
+   — no hard failure.

@@ -9,6 +9,7 @@
 //! command ring the standalone app uses.
 
 pub mod core;
+pub mod nih;
 pub mod state;
 
 pub use core::PluginCore;

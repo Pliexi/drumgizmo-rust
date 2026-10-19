@@ -3,10 +3,9 @@
 //! when the host samplerate changes, driven by a lock-free command ring
 //! and rendered per block through [`dg_engine::Engine::render_stereo`].
 
-use dg_common::{MessageType, MidiEvent, RtCommand};
+use dg_common::{MessageType, MidiEvent, RtCommand, SharedProducer};
 use dg_engine::Engine;
 use dg_sequencer::Pattern;
-use rtrb::Producer;
 
 use crate::state::PluginState;
 
@@ -15,7 +14,9 @@ use crate::state::PluginState;
 pub struct PluginCore {
     state: PluginState,
     engine: Option<Engine>,
-    producer_unlocked: Producer<RtCommand>,
+    /// Shared producer handle: wrapper threads (editors, MIDI) clone
+    /// this; only `process` drains the consumer on the audio thread.
+    producer: SharedProducer,
     samplerate: u32,
     /// Optimistic transport memory (commands only; the engine stays the
     /// authority on actual playback).
@@ -38,7 +39,7 @@ impl Default for PluginCore {
         Self {
             state: PluginState::default(),
             engine: Some(engine),
-            producer_unlocked: producer,
+            producer: std::sync::Arc::new(std::sync::Mutex::new(producer)),
             samplerate: 44100,
             sequencer_running: false,
             last_pushed_tempo: 0.0,
@@ -55,6 +56,11 @@ impl PluginCore {
     /// Current state copy (host `getState`).
     pub fn state(&self) -> PluginState {
         self.state.clone()
+    }
+
+    /// Clones the shared producer handle for editor/MIDI threads.
+    pub fn shared_producer(&self) -> SharedProducer {
+        std::sync::Arc::clone(&self.producer)
     }
 
     /// Replaces the whole state (host `setState`): forwards the parts the
@@ -77,7 +83,7 @@ impl PluginCore {
         let (engine, producer) = dg_engine::engine_pair(samplerate as u64, 256);
         self.samplerate = samplerate;
         self.engine = Some(engine);
-        self.producer_unlocked = producer;
+        *self.producer.lock().unwrap() = producer;
         self.replay_state();
     }
 
@@ -109,7 +115,7 @@ impl PluginCore {
     }
 
     fn push_command(&mut self, command: RtCommand) {
-        let _ = self.producer_unlocked.push(command);
+        let _ = self.producer.lock().unwrap().push(command);
     }
 
     // ------------------------------------------------------------------

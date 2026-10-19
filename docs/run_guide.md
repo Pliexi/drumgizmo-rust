@@ -104,6 +104,7 @@ Useful flags:
 | `--gain <0.0..8.0>` | master gain (default 1.0) |
 | `--scale <FACTOR>` | UI scale override (high-DPI displays) |
 | `--list-midi` | print available MIDI input ports and exit |
+| `--list-audio` | print every detected audio host/device and the rated config the engine would pick, then exit (v0.1.3 — the "no sound?" self-diagnosis) |
 | `--version` / `--help` | what they say |
 
 `scripts/run_standalone.sh` builds if needed and runs with
@@ -206,15 +207,20 @@ scripts/install_local.sh
 ```
 
 Then rescan plugins in your DAW. What to expect in every format:
-- **Params**: `Master gain` (0..8, linear) and `Sequencer tempo`
-  (30..360 BPM), both automatable.
-- **MIDI in**: the same note/choke semantics as the standalone app.
-- **Output**: stereo.
-- **State** persists (kit path, gains, tempo, pattern) and survives
-  project reload.
-- **GUI**: no custom editor yet in VST3/CLAP — hosts show controls
-  (automation lanes, gain/tempo sliders) but not a custom window.
-  Known and documented in `docs/decisions.md`.
+- **MIDI in**: the same note/choke semantics as the standalone app
+  (velocity-zero note-ons count as note-offs; out-of-range keys are
+  dropped).
+- **Output**: stereo (mono hosts get a mixdown; extra channels silent).
+- **State** persists (kit path, pattern, master gain, tempo) and
+  survives project reload.
+- **GUI**: CLAP and VST3 embed the **full egui editor** — the Kit tab
+  with a native file chooser button (`📂 Open file chooser…`), the
+  Sequencer and the Inspector, exactly like the standalone window.
+  Master gain and tempo are edited in that GUI; there are no
+  host-automatable parameters (see `docs/decisions.md` for why).
+- **LV2** keeps the two automatable parameters (`Master gain`,
+  `Sequencer tempo`) and no GUI yet — the LV2 wrapper was left as-is
+  in v0.1.3 and the editor work went to CLAP/VST3 first.
 
 ### 4.1 Per-format notes
 
@@ -241,6 +247,18 @@ Then rescan plugins in your DAW. What to expect in every format:
 - **Carla** 2.5.x does not know the word "clap" yet — use 2.6+ for
   CLAP or just load the LV2/VST3 there.
 
+### 4.2 Upgrading from v0.1.2 sessions
+
+The VST3 class IDs changed between v0.1.2 (hand-written wrapper) and
+v0.1.3 (nice-plug wrapper): v0.1.2 exported **two** VST3 classes
+(processor + edit controller), v0.1.3 exports the modern **single**
+combined class. Hosts cannot map the old class to the new one, so
+projects saved with the v0.1.2 VST3 will show it as missing after
+upgrading; re-add "DrumGizmo Rust" once and the state (kit/pattern/
+gain) is re-settable from the (now built-in) UI. CLAP projects keep
+the same `com.pliexi.drumgizmo-rust` id and restore normally; LV2 is
+unchanged.
+
 ---
 
 ## 5. Troubleshooting
@@ -251,7 +269,8 @@ Then rescan plugins in your DAW. What to expect in every format:
 | Ctrl+V into the kit path does nothing | Your compositor/clipboard bridge is silent — use the **Paste** button (reads the clipboard directly, works under Wayland) or drag&drop the kit.xml in |
 | `--list-midi` shows only `Midi Through` | That is fine — PipeWire exposes raw MIDI through it; connect your controller with `pw-dump`/`pw-midi`-ish tools, or in the setup your DAW owns the port |
 | `Error` + 44100 silent fallback warning | No usable audio device (headless box). Tests, GUI and MIDI keep working; audio resumes on a machine with a device |
-| DAW shows plugin but no sound | The engine needs a kit: set the kit path in plugin state (or let `--kit` seed it; VST3/CLAP state carries it) |
+| DAW shows plugin but no sound | The engine needs a kit: open the plugin UI (CLAP/VST3) and use `📂 Open file chooser…`; state carries the kit across reloads |
+| Standalone seems silent | Run `drumgizmo-rust --list-audio` — it prints every detected host/device and the config it chose; if the device appears with a non-float sample format the new tiered `choose()` should still have matched it, otherwise file an issue with that output |
 | Plugin not discovered | DAW 32-bit? We build x86_64 only. Path wrong? Re-run `scripts/install_local.sh`. Windows hosts: check the module file is named `drumgizmo-rust.vst3` inside `Contents\x86_64-win\` |
 | Typing digits/Space in a field does something else | Fixed in v0.1.1 — fields now own the keyboard; update your build |
 

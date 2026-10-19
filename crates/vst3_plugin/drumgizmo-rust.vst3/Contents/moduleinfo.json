@@ -1,22 +1,17 @@
 {
   "Name": "drumgizmo-rust",
-  "Version": "0.1.0",
-  "Sub Categories": ["Instrument", "Drum"],
+  "Version": "0.1.3",
+  "Sub Categories": ["Instrument", "Drum", "Sampler"],
   "Factory Info": {
-    "Vendor": "drumgizmo-rust contributors",
+    "Vendor": "drumgizmo-rust project",
     "URL": "https://github.com/Pliexi/drumgizmo-rust",
-    "Email": "drumgizmo-rust@localhost",
+    "Email": "milyukovegor2009@gmail.com",
     "Flags": 1
   },
   "Classes": [
     {
-      "CID": "5D4B52F012344E02A510A6F16AD2EF34",
+      "CID": "6472756D67697A6D6F2D727573745633",
       "Category": "Audio Module Class",
-      "Name": "drumgizmo-rust"
-    },
-    {
-      "CID": "8F87F49556784BCCB2731C904EA1D2F9",
-      "Category": "Component Controller Class",
       "Name": "drumgizmo-rust"
     }
   ]

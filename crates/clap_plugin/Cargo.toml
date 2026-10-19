@@ -11,6 +11,5 @@ description = "CLAP wrapper for the drumgizmo-rust engine"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-dg-common = { workspace = true }
 dg-plugin = { workspace = true }
-clap-sys = { workspace = true }
+nice-plug = { workspace = true }

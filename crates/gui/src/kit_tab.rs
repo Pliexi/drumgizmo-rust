@@ -113,6 +113,32 @@ pub fn show(app: &mut DrumApp, ui: &mut egui::Ui) {
             {
                 app.paste_kit_path();
             }
+            // Native portal/GTK file chooser: exactly the explorer the
+            // desktop provides, not another homemade tree.
+            if ui
+                .button("📂 Open file chooser…")
+                .on_hover_text("Pick a kit directory in the system file dialog")
+                .clicked()
+            {
+                match rfd::FileDialog::new()
+                    .add_filter("DrumGizmo kit", &["xml"])
+                    .set_title("Select kit directory (or drumkit.xml)")
+                    .pick_folder()
+                {
+                    Some(path) => {
+                        let path = path.display().to_string();
+                        app.kit_dir_entry = path.clone();
+                        app.request_kit_load(crate::kit_tab::normalize_kit_path(&path));
+                    }
+                    None => {
+                        // The portal refused (missing xdg-desktop-portal,
+                        // headless session…) — keep the manual paths.
+                        app.set_status(
+                            "File chooser unavailable: type a path, or use the directory browser",
+                        );
+                    }
+                }
+            }
         });
         ui.weak(
             "Give the drumkit directory (or its drumkit.xml); the engine loads\

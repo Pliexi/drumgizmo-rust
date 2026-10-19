@@ -226,8 +226,23 @@ impl std::error::Error for MidiError {}
 /// (create the engine pair *after* this resolution so the rates match).
 pub struct OutputSetup {
     device: cpal::Device,
+    /// The negotiated format; only f32 reaches the engine untouched,
+    /// everything else is converted once per frame in the callback.
+    pub sample_format: SampleFormat,
     pub config: StreamConfig,
 }
+
+/// Output sample formats the engine can drive, in preference order:
+/// f32 renders without conversion, the integer formats are converted
+/// per frame (cheap, still realtime-safe) and cover virtually every
+/// real device that refuses floating point streams.
+const PREFERRED_FORMATS: [SampleFormat; 5] = [
+    SampleFormat::F32,
+    SampleFormat::I16,
+    SampleFormat::U16,
+    SampleFormat::I32,
+    SampleFormat::F64,
+];
 
 impl OutputSetup {
     /// Default host, default output device.
@@ -243,81 +258,147 @@ impl OutputSetup {
         Self::choose(&device)
     }
 
-    /// Picks an f32 config for the device in this order:
-    /// the device default when it is already f32, else the first f32
-    /// range at the default rate, else the max-rate f32 config of the
-    /// first range. Only f32 is accepted because the engine renders f32
-    /// directly (no format conversion anywhere in the output path).
+    /// Picks the best supported config in this order: for every format
+    /// of [`PREFERRED_FORMATS`] (f32 first) prefer the device default
+    /// rate, then 44.1/48 kHz, then the range's maximum rate. Historically
+    /// this only accepted f32 — real devices without any f32 range (the
+    /// reason a perfectly working engine stayed silent for some users)
+    /// are now covered by per-frame format conversion in the callback.
     pub fn choose(device: &cpal::Device) -> Result<Self, AudioError> {
         let default_config = device
             .default_output_config()
             .map_err(|error| AudioError::NoConfig(format!("{error}")))?;
         let ranges: Vec<_> = device
             .supported_output_configs()
-            .map(|iter| {
-                iter.filter(|range| range.sample_format() == SampleFormat::F32)
-                    .collect()
-            })
+            .map(Iterator::collect)
             .unwrap_or_default();
-        if ranges.is_empty() {
-            return Err(AudioError::NoConfig(
-                "device offers no f32 output stream".into(),
-            ));
-        }
+        let default_rate = default_config.sample_rate();
 
-        let config = if default_config.sample_format() == SampleFormat::F32 {
-            default_config
-        } else {
-            let default_rate = default_config.sample_rate();
-            ranges
-                .iter()
-                .find_map(|range| range.try_with_sample_rate(default_rate))
-                .or_else(|| ranges.first().map(|range| (*range).with_max_sample_rate()))
-                .unwrap_or(default_config)
+        // Rank inside one format tier: stereo first, then mono (the
+        // scatter downmixes), then the smallest wider configuration.
+        let channel_rank = |channels: u16| -> u32 {
+            if channels >= 2 {
+                1000 - u32::from(channels)
+            } else {
+                u32::from(channels)
+            }
         };
 
-        Ok(Self {
-            device: device.clone(),
-            config: config.config(),
-        })
+        // Best config of one format at the preferred rates.
+        let best_at_rate = |format: SampleFormat, rate: Option<u32>| {
+            let candidates: Vec<_> = ranges
+                .iter()
+                .filter(|range| range.sample_format() == format)
+                .filter_map(|range| match rate {
+                    Some(rate) => range.try_with_sample_rate(rate),
+                    None => Some(range.with_max_sample_rate()),
+                })
+                .collect();
+            candidates
+                .into_iter()
+                .max_by_key(|config| channel_rank(config.channels()))
+        };
+
+        // Builds a candidate per format, ordered default rate → 48k →
+        // 44.1k → range max, stereo preferred inside each rate.
+        let best_for_format = |format: SampleFormat| {
+            [Some(default_rate), Some(48_000), Some(44_100), None]
+                .into_iter()
+                .find_map(|rate| best_at_rate(format, rate))
+        };
+
+        // Tier 1: highest-preference format with a real stereo (or
+        // wider) configuration. Broken 1-channel F32 maps on USB
+        // devices must not beat a working I16 stereo stream.
+        for format in PREFERRED_FORMATS {
+            if let Some(config) = best_for_format(format).filter(|config| config.channels() >= 2) {
+                return Ok(Self {
+                    device: device.clone(),
+                    sample_format: format,
+                    config: config.config(),
+                });
+            }
+        }
+        // Tier 2: nothing stereo anywhere — make do with mono.
+        for format in PREFERRED_FORMATS {
+            if let Some(config) = best_for_format(format) {
+                return Ok(Self {
+                    device: device.clone(),
+                    sample_format: format,
+                    config: config.config(),
+                });
+            }
+        }
+
+        Err(AudioError::NoConfig(
+            "device offers none of f32/i16/u16/i32/f64 output streams".into(),
+        ))
     }
 
     /// Builds the running cpal stream around `engine`. The engine moves
     /// into the audio callback and stays there for the stream lifetime;
     /// control happens through the command ring only.
-    pub fn build(self, mut engine: Engine) -> Result<RunningStream, AudioError> {
+    pub fn build(self, engine: Engine) -> Result<RunningStream, AudioError> {
+        match self.sample_format {
+            SampleFormat::F32 => self.build_typed::<f32>(engine),
+            SampleFormat::I16 => self.build_typed::<i16>(engine),
+            SampleFormat::U16 => self.build_typed::<u16>(engine),
+            SampleFormat::I32 => self.build_typed::<i32>(engine),
+            SampleFormat::F64 => self.build_typed::<f64>(engine),
+            other => Err(AudioError::NoConfig(format!(
+                "unsupported output format {other:?} (expected f32/i16/u16/i32/f64)"
+            ))),
+        }
+    }
+
+    /// Typed stream builder shared by every supported format: the engine
+    /// always renders planar f32, the last loop step converts into the
+    /// device's type (`cpal::Sample::from` is the identity for f32).
+    fn build_typed<T: cpal::SizedSample + cpal::FromSample<f32>>(
+        self,
+        mut engine: Engine,
+    ) -> Result<RunningStream, AudioError> {
         let channels = self.config.channels as usize;
         let sample_rate = self.config.sample_rate;
-        // Per-block planar scratch, grows once if the host asks for a
-        // bigger block than the initial 2048 frames, zero allocation in
-        // the steady state.
+        // Per-block planar + interleaved-f32 scratch; grows once if the
+        // host asks for a bigger block than the initial 2048 frames
+        // (≈46 ms @ 44.1 kHz), zero allocation in the steady state.
         let mut left = vec![0.0f32; 2048];
         let mut right = vec![0.0f32; left.len()];
+        let mut interleaved = vec![0.0f32; 2048 * channels.max(2)];
 
         let stats = Arc::new(StreamStats::default());
         let stats_callback = Arc::clone(&stats);
         let fail_callback = Arc::clone(&stats);
 
-        let data_callback = move |data: &mut [f32], _info: &cpal::OutputCallbackInfo| {
+        let data_callback = move |data: &mut [T], _info: &cpal::OutputCallbackInfo| {
             let frames = data.len() / channels.max(1);
             if frames == 0 {
                 return;
             }
             if left.len() < frames {
                 // One-time growth when the host delivers a bigger block
-                // than the initial scratch (2048 frames ≈ 46 ms @ 44.1k).
+                // than the initial scratch.
                 left.resize(frames, 0.0);
                 right.resize(frames, 0.0);
             }
-            if channels == 2 {
-                gather_stereo_interleaved(data, &mut left[..frames], &mut right[..frames]);
+            let needed = frames * channels;
+            if interleaved.len() < needed {
+                interleaved.resize(needed, 0.0);
             }
             engine.render_stereo(&mut left[..frames], &mut right[..frames], &[]);
-            scatter_to_interleaved(data, &left[..frames], &right[..frames]);
-            let peak = data
+            scatter_to_interleaved(
+                &mut interleaved[..needed],
+                &left[..frames],
+                &right[..frames],
+            );
+            let peak = interleaved[..needed]
                 .iter()
                 .fold(0.0f32, |best: f32, sample| sample.abs().max(best));
             stats_callback.push_block(peak, frames as u64);
+            for (destination, source) in data.iter_mut().zip(interleaved[..needed].iter()) {
+                *destination = T::from_sample(*source);
+            }
         };
 
         let fail_callback_fn = move |error| {
@@ -327,7 +408,7 @@ impl OutputSetup {
 
         let stream = self
             .device
-            .build_output_stream::<f32, _, _>(self.config, data_callback, fail_callback_fn, None)
+            .build_output_stream::<T, _, _>(self.config, data_callback, fail_callback_fn, None)
             .map_err(|error| AudioError::Stream(format!("{error}")))?;
         stream
             .play()
@@ -356,6 +437,49 @@ impl RunningStream {
         // Dropping `stream` lets cpal join the audio thread.
         let _ = self.stream;
     }
+}
+
+/// A diagnostic listing of every host/device the process can see, with
+/// the config [`OutputSetup::choose`] would negotiate per device. Used
+/// by the standalone `--list-audio` flag so users can paste real facts
+/// into issues instead of "no sound".
+pub fn list_audio_outputs() -> String {
+    let mut report = String::new();
+    for host_id in cpal::available_hosts() {
+        let host = match cpal::host_from_id(host_id) {
+            Ok(host) => host,
+            Err(error) => {
+                report.push_str(&format!("host {host_id}: unavailable ({error})\n"));
+                continue;
+            }
+        };
+        report.push_str(&format!("host {host_id}:\n"));
+        let Ok(devices) = host.output_devices() else {
+            report.push_str("  (output devices not enumerable)\n");
+            continue;
+        };
+        let mut any = false;
+        for (index, device) in devices.enumerate() {
+            any = true;
+            let name = device
+                .description()
+                .map(|desc| desc.name().to_string())
+                .unwrap_or_else(|_| "<unnamed>".to_string());
+            match OutputSetup::choose(&device) {
+                Ok(setup) => report.push_str(&format!(
+                    "  [{index}] \"{name}\" → {} Hz / {} ch ({:?})\n",
+                    setup.config.sample_rate, setup.config.channels, setup.sample_format,
+                )),
+                Err(error) => {
+                    report.push_str(&format!("  [{index}] \"{name}\" → unusable: {error}\n"))
+                }
+            }
+        }
+        if !any {
+            report.push_str("  (no output devices)\n");
+        }
+    }
+    report
 }
 
 /// Lists MIDI input port names as resolved by midir on the default client.
@@ -440,6 +564,34 @@ mod tests {
 
     fn events(bytes: &[u8]) -> Vec<MidiEvent> {
         decode_midi_bytes(bytes)
+    }
+
+    #[test]
+    fn interleave_matches_channel_layouts() {
+        // stereo: planar L/R → interleaved pairs
+        let mut out = vec![0.0f32; 6];
+        scatter_to_interleaved(&mut out, &[1.0, 2.0, 3.0], &[-1.0, -2.0, -3.0]);
+        assert_eq!(out, vec![1.0, -1.0, 2.0, -2.0, 3.0, -3.0]);
+
+        // mono: mean of the pair
+        let mut out = vec![0.0f32; 3];
+        scatter_to_interleaved(&mut out, &[1.0, 2.0, 3.0], &[-1.0, -2.0, -3.0]);
+        assert_eq!(out, vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn integer_conversion_is_dasp_saturating_free() {
+        // i16 conversion goes through the same `FromSample` path the
+        // callback uses; quiet signals convert without clipping.
+        use cpal::Sample;
+        // dasp scales full scale to i16::MAX (32767), 0.5 lands mid-way.
+        let source: f32 = 0.5;
+        let converted: i16 = i16::from_sample(source);
+        assert_eq!(converted, 16_384);
+
+        let clip = 1.5f32;
+        let converted: i16 = i16::from_sample(clip);
+        assert_eq!(converted, i16::MAX);
     }
 
     #[test]

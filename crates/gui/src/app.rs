@@ -90,24 +90,46 @@ impl DrumApp {
         options: crate::AppOptions,
         producer: SharedProducer,
     ) -> Self {
-        Self::configure_theme(&cc.egui_ctx);
+        Self::configure_theme_on(&cc.egui_ctx);
+        let mut app = Self::new_for_host(
+            producer,
+            options.kit_path.clone(),
+            options.master_gain,
+            120.0,
+            options.pattern.clone(),
+        );
+        app.audio = options.audio;
+        app.watch = options.watch;
+        app
+    }
+
+    /// Window-host independent app state: identical defaults to
+    /// `new()`, but constructible from any GUI host (plugin editors
+    /// create this inside `Editor::spawn` without eframe).
+    pub fn new_for_host(
+        producer: SharedProducer,
+        kit_path: String,
+        master_gain: f32,
+        tempo: f64,
+        pattern: Pattern,
+    ) -> Self {
         let mut app = Self {
             producer,
             mode: Mode::Kit,
             status: "No kit loaded.".into(),
-            kit_dir_entry: options.kit_path.clone(),
+            kit_dir_entry: kit_path.clone(),
             kit_summary: None,
             kit_error: None,
-            master_gain: options.master_gain,
+            master_gain,
             voice_gains: Vec::new(),
-            pattern: options.pattern,
+            pattern,
             selected_lane: 0,
             selected_step: 0,
             default_step_velocity: 0.8,
             drag_paint: None,
             velocity_edited: None,
             drag_snapshot_pending: false,
-            tempo: 120.0,
+            tempo,
             midi_import_path: String::new(),
             midi_export_path: String::new(),
             playing: false,
@@ -117,16 +139,14 @@ impl DrumApp {
             audio: None,
             watch: None,
         };
-        app.audio = options.audio;
-        app.watch = options.watch;
-        if !options.kit_path.is_empty() {
-            app.request_kit_load(options.kit_path);
+        if !kit_path.is_empty() {
+            app.request_kit_load(kit_path);
         }
         app
     }
 
     /// Dark palette, 1 px separations, larger glow text areas.
-    fn configure_theme(ctx: &Context) {
+    pub fn configure_theme_on(ctx: &Context) {
         let mut visuals = egui::Visuals::dark();
         visuals.override_text_color = Some(egui::Color32::from_rgb(214, 214, 220));
         visuals.panel_fill = egui::Color32::from_rgb(22, 23, 27);
@@ -434,6 +454,18 @@ impl DrumApp {
 impl eframe::App for DrumApp {
     /// Runs *before* the UI pass: shortcuts and one-shot enables.
     fn logic(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        self.handle_frame(ctx);
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.draw_ui(ui);
+    }
+}
+
+impl DrumApp {
+    /// Frame pass that must run before any drawing (works for eframe
+    /// and for host-embedded editors alike).
+    pub fn handle_frame(&mut self, ctx: &Context) {
         self.handle_shortcuts(ctx);
         if self.pattern_dirty {
             // Audio side re-hydrates the pattern only when it changed.
@@ -444,7 +476,9 @@ impl eframe::App for DrumApp {
         }
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    /// Full UI pass on any root `Ui` — the plugin editors drive this
+    /// directly from their host-provided frame.
+    pub fn draw_ui(&mut self, ui: &mut egui::Ui) {
         egui::Panel::top("top_bar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 if ui.selectable_label(self.mode == Mode::Kit, "Kit").clicked() {
@@ -547,9 +581,44 @@ impl eframe::App for DrumApp {
 // shared helpers used by the tab modules
 // ---------------------------------------------------------------------
 
+/// What a host plugin editor needs to mirror into its persistent state
+/// (nice-plug `#[persist]` fields on save).
+pub struct EditorSnapshot {
+    /// The kit path currently displayed in the entry (persists the
+    /// user's intent even when the load failed).
+    pub kit_path_entry: String,
+    /// Path of the kit the engine actually received a summary for.
+    pub loaded_kit_path: Option<String>,
+    /// Current pattern (serialized by the host wrapper).
+    pub pattern: Pattern,
+    /// Master gain slider value 0.0..=8.0.
+    pub master_gain: f32,
+    /// Tempo slider value in BPM.
+    pub tempo: f64,
+}
+
 impl DrumApp {
     pub(crate) fn producer(&mut self) -> std::sync::MutexGuard<'_, Producer<RtCommand>> {
         self.producer.lock().unwrap()
+    }
+
+    /// Persistence snapshot for host embeddings (run after each frame).
+    pub fn editor_snapshot(&self) -> EditorSnapshot {
+        EditorSnapshot {
+            kit_path_entry: self.kit_dir_entry.clone(),
+            loaded_kit_path: self
+                .kit_summary
+                .as_ref()
+                .map(|summary| summary.path.clone()),
+            pattern: self.pattern.clone(),
+            master_gain: self.master_gain,
+            tempo: self.tempo,
+        }
+    }
+
+    /// The seque transport switch shared with the editor shell.
+    pub fn transport_running(&self) -> bool {
+        self.playing
     }
 
     pub(crate) fn set_status(&mut self, text: impl Into<String>) {

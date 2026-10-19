@@ -17,6 +17,7 @@ crossbeam-channel = "0.5"
 eframe = { workspace = true }
 egui = { workspace = true }
 arboard = { workspace = true }
+rfd = { workspace = true }
 rtrb = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
